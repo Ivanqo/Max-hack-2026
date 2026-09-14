@@ -1,0 +1,117 @@
+services:
+  db:
+    image: postgres:15
+    container_name: max-hack-db
+    environment:
+      POSTGRES_DB: maxhack
+      POSTGRES_USER: maxhack_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U maxhack_user -d maxhack"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - max-hack-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-production}
+    container_name: max-hack-backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://maxhack_user:${DB_PASSWORD:-changeme123}@db:5432/maxhack}
+      DB_NAME: ${DB_NAME:-maxhack}
+      DB_USER: ${DB_USER:-maxhack_user}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme123}
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-${SECRET_KEY:-dev-secret-key-change-in-production}}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-${DEBUG:-false}}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
+      MAX_API_URL: ${MAX_API_URL:-}
+      MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
+      MAX_INTEGRATION_MODE: ${MAX_INTEGRATION_MODE:-mock}
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_media:/app/media
+      - backend_static:/app/staticfiles
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - max-hack-network
+    restart: unless-stopped
+
+  frontend-student:
+    build:
+      context: ./frontend-student
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-production}
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    container_name: max-hack-frontend-student
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - max-hack-network
+    restart: unless-stopped
+
+  frontend-admin:
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-production}
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    container_name: max-hack-frontend-admin
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - max-hack-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  backend_media:
+    driver: local
+  backend_static:
+    driver: local
+
+networks:
+  max-hack-network:
+    driver: bridge
