@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
-from .models import Notification
+from .models import MaxWebhookEvent, Notification
 
 
 @admin.register(Notification)
@@ -16,14 +16,22 @@ class NotificationAdmin(admin.ModelAdmin):
         'student',
         'opportunity',
         'status_badge',
+        'delivery_status',
+        'provider_message_id',
         'created_at',
         'sent_at',
+        'failed_at',
+        'read_at',
     ]
 
     list_filter = [
         'status',
+        'delivery_status',
+        'provider',
         'created_at',
         'sent_at',
+        'failed_at',
+        'read_at',
     ]
 
     search_fields = [
@@ -38,6 +46,9 @@ class NotificationAdmin(admin.ModelAdmin):
         'id',
         'created_at',
         'sent_at',
+        'failed_at',
+        'read_at',
+        'provider_message_id',
     ]
 
     fieldsets = (
@@ -48,7 +59,18 @@ class NotificationAdmin(admin.ModelAdmin):
             'fields': ('opportunity',)
         }),
         (_('Status'), {
-            'fields': ('status', 'created_at', 'sent_at')
+            'fields': (
+                'status',
+                'delivery_status',
+                'provider',
+                'provider_message_id',
+                'idempotency_key',
+                'last_error',
+                'created_at',
+                'sent_at',
+                'failed_at',
+                'read_at',
+            )
         }),
     )
 
@@ -82,6 +104,7 @@ class NotificationAdmin(admin.ModelAdmin):
         from django.utils import timezone
         updated = queryset.update(
             status=Notification.Status.SENT,
+            delivery_status=Notification.DeliveryStatus.SENT,
             sent_at=timezone.now()
         )
         self.message_user(
@@ -92,7 +115,10 @@ class NotificationAdmin(admin.ModelAdmin):
     @admin.action(description=_('Mark selected notifications as failed'))
     def mark_as_failed(self, request, queryset):
         """Bulk action to mark notifications as failed."""
-        updated = queryset.update(status=Notification.Status.FAILED)
+        updated = queryset.update(
+            status=Notification.Status.FAILED,
+            delivery_status=Notification.DeliveryStatus.FAILED,
+        )
         self.message_user(
             request,
             _(f'{updated} notification(s) marked as failed.')
@@ -103,9 +129,18 @@ class NotificationAdmin(admin.ModelAdmin):
         """Bulk action to mark notifications as pending."""
         updated = queryset.update(
             status=Notification.Status.PENDING,
+            delivery_status=Notification.DeliveryStatus.PENDING,
             sent_at=None
         )
         self.message_user(
             request,
             _(f'{updated} notification(s) marked as pending.')
         )
+
+
+@admin.register(MaxWebhookEvent)
+class MaxWebhookEventAdmin(admin.ModelAdmin):
+    list_display = ['event_id', 'event_type', 'processed_at']
+    search_fields = ['event_id', 'event_type']
+    list_filter = ['event_type', 'processed_at']
+    readonly_fields = ['event_id', 'event_type', 'payload', 'processed_at']

@@ -61,6 +61,39 @@ class TestUserRegistration:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_public_registration_rejects_admin_role(self, api_client):
+        """Public registration must not create privileged users."""
+        data = {
+            'email': 'admin-attempt@example.com',
+            'password': 'newpass123!',
+            'password2': 'newpass123!',
+            'first_name': 'Bad',
+            'last_name': 'Actor',
+            'role': 'admin',
+            'university': 'Test University'
+        }
+        response = api_client.post('/api/auth/register/', data)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not User.objects.filter(email='admin-attempt@example.com').exists()
+
+        legit = {
+            **data,
+            'email': 'student-only@example.com',
+            'role': 'student',
+        }
+        student_response = api_client.post('/api/auth/register/', legit)
+        assert student_response.status_code == status.HTTP_201_CREATED
+        created = User.objects.get(email='student-only@example.com')
+        assert created.role == 'student'
+        assert not created.is_staff
+        assert not created.is_superuser
+
+        token = student_response.data['tokens']['access']
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        admin_response = api_client.get('/api/admin/analytics')
+        assert admin_response.status_code == status.HTTP_403_FORBIDDEN
+
 
 @pytest.mark.django_db
 class TestUserLogin:

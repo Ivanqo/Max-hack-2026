@@ -35,9 +35,13 @@ services:
       DJANGO_DEBUG: ${DJANGO_DEBUG:-${DEBUG:-false}}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
-      MAX_API_URL: ${MAX_API_URL:-}
+      MAX_API_URL: ${MAX_API_URL:-https://platform-api2.max.ru}
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}
       MAX_INTEGRATION_MODE: ${MAX_INTEGRATION_MODE:-mock}
+      MAX_WEBHOOK_SECRET: ${MAX_WEBHOOK_SECRET:-}
+      MAX_WEBHOOK_URL: ${MAX_WEBHOOK_URL:-}
+      MAX_WEBAPP_BASE_URL: ${MAX_WEBAPP_BASE_URL:-http://localhost:3000}
+      AUTO_SEED_DEMO: ${AUTO_SEED_DEMO:-true}
     ports:
       - "8000:8000"
     volumes:
@@ -71,7 +75,7 @@ services:
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -95,7 +99,7 @@ services:
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3

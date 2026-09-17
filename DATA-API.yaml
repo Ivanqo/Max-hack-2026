@@ -1,0 +1,126 @@
+name: UniPath MAX
+version: 1.0.0
+description: Contest API checks for the main MAX mini-app scenario.
+base_url: http://localhost:8000
+openapi: ./openapi.yaml
+auth:
+  type: bearer
+  login_endpoint: /api/auth/login/
+  demo_accounts:
+    student:
+      email: student@demo.local
+      password: demo12345
+      role: student
+    admin:
+      email: admin@demo.local
+      password: demo12345
+      role: admin
+    second_tenant_student:
+      email: student@north.local
+      password: demo12345
+      role: student
+checks:
+  - id: health
+    method: GET
+    path: /api/health/
+    expect_status: 200
+  - id: login_student
+    method: POST
+    path: /api/auth/login/
+    body:
+      email: student@demo.local
+      password: demo12345
+    expect_status: 200
+    extracts:
+      student_token: $.access
+  - id: prevent_privilege_escalation
+    method: POST
+    path: /api/auth/register/
+    body:
+      email: admin-attempt@example.local
+      password: demo12345
+      password2: demo12345
+      first_name: Admin
+      last_name: Attempt
+      role: admin
+    expect_status: 400
+  - id: onboarding
+    method: POST
+    path: /api/onboarding
+    auth: student_token
+    body:
+      universityId: "1"
+      instituteId: cs
+      courseId: "1"
+      studyYear: "3"
+      interests: [Backend, стажировки]
+      skills:
+        - name: Python
+          level: 4
+        - name: Django
+          level: 3
+      careerGoal: Backend Developer
+    expect_status: 200
+  - id: career_gps
+    method: GET
+    path: /api/student/career-gps
+    auth: student_token
+    expect_status: 200
+  - id: opportunities
+    method: GET
+    path: /api/student/opportunities
+    auth: student_token
+    expect_status: 200
+    extracts:
+      opportunity_id: $[0].id
+  - id: save_opportunity
+    method: POST
+    path: /api/student/opportunities/{opportunity_id}/save
+    auth: student_token
+    expect_status: 200
+  - id: create_subscription
+    method: POST
+    path: /api/student/subscriptions
+    auth: student_token
+    body:
+      topic: Backend
+      filters:
+        topic: Backend
+      active: true
+    expect_status: 201
+  - id: login_admin
+    method: POST
+    path: /api/auth/login/
+    body:
+      email: admin@demo.local
+      password: demo12345
+    expect_status: 200
+    extracts:
+      admin_token: $.access
+  - id: admin_publish_matching_opportunity
+    method: POST
+    path: /api/admin/opportunities
+    auth: admin_token
+    body:
+      title: Backend MAX Bot Internship
+      company: MAX Labs
+      description: Build Django and MAX Bot API integrations.
+      type: internship
+      location: Campus / Hybrid
+      remote: true
+      requirements: [Python, Django, REST]
+      status: active
+    expect_status: 201
+  - id: knowledge_search
+    method: GET
+    path: /api/knowledge/search?q=практика
+    auth: student_token
+    expect_status: 200
+  - id: admin_analytics
+    method: GET
+    path: /api/admin/analytics
+    auth: admin_token
+    expect_status: 200
+notes:
+  - MAX_INTEGRATION_MODE=mock keeps local demo deterministic and marks notifications as simulated.
+  - MAX_INTEGRATION_MODE=real uses https://platform-api2.max.ru/messages with Authorization header and requires MAX_BOT_TOKEN plus MAX_WEBHOOK_SECRET.

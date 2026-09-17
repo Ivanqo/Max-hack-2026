@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bookmark, BookmarkCheck, TrendingUp, AlertCircle, Loader2 } from 'lucide-react';
+import { Bookmark, BookmarkCheck, TrendingUp, AlertCircle, Loader2, BellPlus } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { apiClient } from '@/lib/api';
 
 interface Opportunity {
@@ -29,7 +30,7 @@ const fetchOpportunities = async (filters?: { type?: string; minMatch?: number }
   if (filters?.type) params.append('type', filters.type);
   if (filters?.minMatch) params.append('minMatch', filters.minMatch.toString());
 
-  const response = await apiClient.get(`/opportunities?${params.toString()}`);
+  const response = await apiClient.get(`/student/opportunities?${params.toString()}`);
   const opportunities = response.data;
   return { opportunities, total: opportunities.length };
 };
@@ -42,8 +43,15 @@ const unsaveOpportunity = async (opportunityId: string): Promise<void> => {
   await apiClient.delete(`/student/opportunities/${opportunityId}/save`);
 };
 
+const createSubscription = async (topic: string): Promise<void> => {
+  await apiClient.post('/student/subscriptions', { topic, filters: { topic }, active: true });
+};
+
 export default function Opportunities() {
   const [filters, setFilters] = useState<{ type?: string; minMatch?: number }>({});
+  const [subscriptionTopic, setSubscriptionTopic] = useState('Backend');
+  const [searchParams] = useSearchParams();
+  const highlightedOpportunityId = searchParams.get('opportunity');
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
@@ -84,6 +92,13 @@ export default function Opportunities() {
           };
         }
       );
+    },
+  });
+
+  const subscriptionMutation = useMutation({
+    mutationFn: createSubscription,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student-profile'] });
     },
   });
 
@@ -175,6 +190,38 @@ export default function Opportunities() {
           </p>
         </div>
 
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label htmlFor="subscription-topic" className="block text-sm font-medium text-gray-700 mb-1">
+                MAX subscription topic
+              </label>
+              <input
+                id="subscription-topic"
+                value={subscriptionTopic}
+                onChange={(event) => setSubscriptionTopic(event.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <button
+              onClick={() => subscriptionMutation.mutate(subscriptionTopic)}
+              disabled={subscriptionMutation.isPending || !subscriptionTopic.trim()}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              <BellPlus className="h-4 w-4" />
+              {subscriptionMutation.isPending ? 'Creating...' : 'Create subscription'}
+            </button>
+          </div>
+          {subscriptionMutation.isSuccess && (
+            <p className="mt-3 text-sm text-green-700">Subscription saved. New matching publications will trigger MAX notification.</p>
+          )}
+          {subscriptionMutation.error && (
+            <p className="mt-3 text-sm text-red-700">
+              {subscriptionMutation.error instanceof Error ? subscriptionMutation.error.message : 'Failed to create subscription'}
+            </p>
+          )}
+        </div>
+
         {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex flex-wrap gap-4">
           <div className="flex-1 min-w-[200px]">
@@ -231,7 +278,9 @@ export default function Opportunities() {
           {data.opportunities.map((opportunity) => (
             <article
               key={opportunity.id}
-              className={`bg-white rounded-lg shadow-sm border-2 transition-all ${getMatchBorderColor(
+              className={`bg-white rounded-lg shadow-sm border-2 transition-all ${
+                highlightedOpportunityId === opportunity.id ? 'ring-4 ring-indigo-200' : ''
+              } ${getMatchBorderColor(
                 opportunity.matchPercentage
               )}`}
             >

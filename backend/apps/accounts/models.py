@@ -50,6 +50,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=150, blank=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
     university = models.CharField(max_length=255, blank=True)
+    max_user_id = models.CharField(
+        max_length=64,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text='Linked MAX platform user id for mini-app and bot notifications',
+    )
+    max_username = models.CharField(max_length=255, blank=True)
+    max_linked_at = models.DateTimeField(null=True, blank=True)
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

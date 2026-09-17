@@ -42,7 +42,8 @@ class NotificationService:
         student,
         title: str,
         message: str,
-        opportunity=None
+        opportunity=None,
+        idempotency_key: str | None = None,
     ) -> Notification:
         """
         Create a new notification in the database.
@@ -56,13 +57,28 @@ class NotificationService:
         Returns:
             Created Notification instance
         """
-        notification = Notification.objects.create(
-            student=student,
-            title=title,
-            message=message,
-            opportunity=opportunity,
-            status=Notification.Status.PENDING
-        )
+        defaults = {
+            'student': student,
+            'title': title,
+            'message': message,
+            'opportunity': opportunity,
+            'status': Notification.Status.PENDING,
+            'delivery_status': Notification.DeliveryStatus.PENDING,
+        }
+        if idempotency_key:
+            notification, created = Notification.objects.get_or_create(
+                idempotency_key=idempotency_key,
+                defaults=defaults,
+            )
+            if not created:
+                logger.info(
+                    "Notification already exists for idempotency key %s - ID: %s",
+                    idempotency_key,
+                    notification.id,
+                )
+                return notification
+        else:
+            notification = Notification.objects.create(**defaults)
 
         logger.info(
             f"Notification created - ID: {notification.id}, "
@@ -82,9 +98,12 @@ class NotificationService:
         Returns:
             bool: True if successfully sent, False otherwise
         """
-        if notification.status == Notification.Status.SENT:
+        if notification.delivery_status in [
+            Notification.DeliveryStatus.SENT,
+            Notification.DeliveryStatus.SIMULATED,
+        ]:
             logger.warning(
-                f"Notification {notification.id} already sent, skipping"
+                f"Notification {notification.id} already delivered, skipping"
             )
             return True
 
@@ -99,7 +118,12 @@ class NotificationService:
         # Prepare metadata
         metadata = {
             'notification_id': str(notification.id),
-            'created_at': notification.created_at.isoformat()
+            'created_at': notification.created_at.isoformat(),
+            'max_user_id': notification.student.max_user_id,
+            'webapp_payload': (
+                f'opportunity_{notification.opportunity.id}'
+                if notification.opportunity else 'notifications'
+            ),
         }
 
         try:
@@ -114,9 +138,14 @@ class NotificationService:
 
             if result['success']:
                 if result.get('provider') == 'mock':
-                    notification.mark_as_simulated()
+                    notification.mark_as_simulated(
+                        provider_message_id=result.get('message_id')
+                    )
                 else:
-                    notification.mark_as_sent()
+                    notification.mark_as_sent(
+                        provider_message_id=result.get('message_id'),
+                        provider=result.get('provider', 'max'),
+                    )
 
                 logger.info(
                     f"Notification {notification.id} sent successfully. "
@@ -125,7 +154,7 @@ class NotificationService:
                 return True
             else:
                 # Mark as failed
-                notification.mark_as_failed()
+                notification.mark_as_failed(result.get('error') or 'Delivery failed')
 
                 logger.error(
                     f"Notification {notification.id} failed to send. "
@@ -135,7 +164,7 @@ class NotificationService:
 
         except Exception as e:
             # Handle unexpected errors gracefully
-            notification.mark_as_failed()
+            notification.mark_as_failed('Unexpected delivery error')
 
             logger.error(
                 f"Unexpected error sending notification {notification.id}: {str(e)}",
@@ -148,7 +177,8 @@ class NotificationService:
         student,
         title: str,
         message: str,
-        opportunity=None
+        opportunity=None,
+        idempotency_key: str | None = None,
     ) -> tuple[Notification, bool]:
         """
         Create and send a notification in one operation.
@@ -166,10 +196,18 @@ class NotificationService:
             student=student,
             title=title,
             message=message,
-            opportunity=opportunity
+            opportunity=opportunity,
+            idempotency_key=idempotency_key,
         )
 
-        success = self.send(notification)
+        success = (
+            True
+            if notification.delivery_status in [
+                Notification.DeliveryStatus.SENT,
+                Notification.DeliveryStatus.SIMULATED,
+            ]
+            else self.send(notification)
+        )
 
         return notification, success
 
@@ -188,20 +226,16 @@ class NotificationService:
                 continue
 
             title = f'Новая возможность: {opportunity.title}'
-            if Notification.objects.filter(
-                student=subscription.student,
-                opportunity=opportunity,
-                title=title,
-            ).exists():
-                continue
-
+            idempotency_key = f'subscription:{subscription.id}:opportunity:{opportunity.id}'
             notification = self.create_notification(
                 student=subscription.student,
                 title=title,
                 message=f'Появилась релевантная opportunity по подписке "{subscription.topic}".',
                 opportunity=opportunity,
+                idempotency_key=idempotency_key,
             )
-            self.send(notification)
+            if notification.delivery_status == Notification.DeliveryStatus.PENDING:
+                self.send(notification)
             notifications.append(notification)
 
         return notifications
@@ -249,7 +283,15 @@ class NotificationService:
 
             # Reset to pending before retry
             notification.status = Notification.Status.PENDING
-            notification.save(update_fields=['status'])
+            notification.delivery_status = Notification.DeliveryStatus.PENDING
+            notification.failed_at = None
+            notification.last_error = ''
+            notification.save(update_fields=[
+                'status',
+                'delivery_status',
+                'failed_at',
+                'last_error',
+            ])
 
             if self.send(notification):
                 results['succeeded'] += 1

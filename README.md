@@ -1,110 +1,181 @@
 # UniPath MAX
 
-UniPath MAX is an MVP student career platform with a Django REST backend, a React student app, a React admin app, PostgreSQL, deterministic matching, Career GPS, verified knowledge search, analytics, and a bounded MAX notification adapter.
+UniPath MAX is a reproducible MVP for the educational solutions track: a MAX mini-app plus Django API that helps students build a career profile, get Career GPS guidance, match opportunities, subscribe to topics, and receive proactive MAX bot notifications when an admin publishes a relevant opportunity.
+
+## Main Demo Scenario
+
+1. Student opens the MAX bot.
+2. Bot opens the MAX mini-app.
+3. Mini-app sends MAX `initData` to `POST /api/max/launch/`.
+4. Backend validates signed WebAppData, links `max_user_id` to a local student, and returns JWT tokens.
+5. Student completes onboarding with university, institute, program, study year, interests, skills, and career goal.
+6. Career GPS and opportunity matching are calculated from saved profile and `StudentSkill` rows.
+7. Student saves an opportunity and creates a subscription.
+8. Admin publishes a matching opportunity.
+9. Backend creates one idempotent notification per matching subscription.
+10. In `mock` mode the notification is stored as `simulated`; in `real` mode `RealMaxClient` sends `POST https://platform-api2.max.ru/messages?user_id=<max_user_id>` with `Authorization: <MAX_BOT_TOKEN>`.
+11. The MAX message includes an `open_app` inline button with payload `opportunity_<id>`.
+12. User returns to the opportunity list and sees match score, reasons, and gaps.
 
 ## Architecture
 
 ```text
-React Student UI ---\
-                    +--> Django REST API --> PostgreSQL
-React Admin UI -----/          |
-                               +--> Matching Engine
-                               +--> Career GPS
-                               +--> Knowledge Search
-                               +--> Analytics
-                               +--> MAX Integration Adapter
+MAX Bot
+  -> MAX mini-app / React Student UI
+      -> Django REST API
+          -> PostgreSQL
+          -> Career GPS
+          -> Opportunity Matching
+          -> Subscriptions
+          -> Notifications
+          -> MAX Bot API
+
+React Admin UI -> Django REST API
 ```
 
-The project is a modular monolith: one backend process owns the product workflows, while domain modules keep accounts, profiles, careers, opportunities, knowledge, analytics, subscriptions, notifications, and universities separate.
+The backend is a modular Django monolith with separate apps for accounts, profiles, careers, opportunities, subscriptions, notifications, analytics, knowledge, and universities.
 
-## Structure
-
-```text
-backend/            Django REST API and domain services
-frontend-student/   Student React app
-frontend-admin/     Admin React app
-docs/               Architecture notes
-docker-compose.yml  PostgreSQL, backend, and both frontends
-.env.example        Environment template
-```
-
-## Requirements
-
-- Docker and Docker Compose for the full stack.
-- Node.js 20+ for local frontend work.
-- Python 3.12+ and PostgreSQL for local backend work. SQLite is supported for quick local tests with `DB_ENGINE=sqlite`.
-
-## Quick Start With Docker
+## Quick Start
 
 ```bash
 cp .env.example .env
-docker compose up --build -d
-docker compose exec backend python manage.py migrate
-docker compose exec backend python manage.py seed_demo
+docker compose up --build
 ```
+
+The backend container runs migrations and, by default, an idempotent demo seed (`AUTO_SEED_DEMO=true`). To disable demo seed, set `AUTO_SEED_DEMO=false`.
 
 Open:
 
 - Student app: http://localhost:3000
 - Admin app: http://localhost:3001
-- Backend API: http://localhost:8000/api/health/
+- Backend health: http://localhost:8000/api/health/
+- OpenAPI contract: `openapi.yaml`
+- Contest API checks: `DATA-API.yaml`
 
-## Local Backend
+## Environment Variables
 
-```bash
-cd backend
-python -m venv .venv
-./.venv/Scripts/python -m pip install -r requirements.txt
-set DB_ENGINE=sqlite
-./.venv/Scripts/python manage.py migrate
-./.venv/Scripts/python manage.py seed_demo
-./.venv/Scripts/python manage.py runserver
+Core:
+
+```env
+DJANGO_SECRET_KEY=change-me-in-production
+DJANGO_DEBUG=False
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+DATABASE_URL=postgresql://maxhack_user:changeme123@db:5432/maxhack
+VITE_API_URL=/api
+AUTO_SEED_DEMO=true
 ```
 
-On PowerShell use `$env:DB_ENGINE='sqlite'` instead of `set DB_ENGINE=sqlite`.
+MAX local/demo:
 
-## Local Frontends
-
-```bash
-cd frontend-student
-npm install
-npm run dev
+```env
+MAX_API_URL=https://platform-api2.max.ru
+MAX_INTEGRATION_MODE=mock
+MAX_BOT_TOKEN=
+MAX_WEBHOOK_SECRET=
+MAX_WEBHOOK_URL=
+MAX_WEBAPP_BASE_URL=http://localhost:3000
 ```
 
-```bash
-cd frontend-admin
-npm install
-npm run dev
+MAX production:
+
+```env
+MAX_API_URL=https://platform-api2.max.ru
+MAX_BOT_TOKEN=<real bot token>
+MAX_INTEGRATION_MODE=real
+MAX_WEBHOOK_SECRET=<random 32+ chars>
+MAX_WEBHOOK_URL=https://<public-domain>/api/max/webhook/
+MAX_WEBAPP_BASE_URL=https://<public-domain>/
 ```
 
-## Environment
+Do not put real secrets in frontend code, `.env.example`, README, screenshots, or commits.
 
-Core variables are listed in `.env.example`:
+## Ports
 
-- `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`
-- `DATABASE_URL` or `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`
-- `CORS_ALLOWED_ORIGINS`
-- `VITE_API_URL`
-- `MAX_API_URL`, `MAX_BOT_TOKEN`, `MAX_INTEGRATION_MODE`
+- `5432`: PostgreSQL
+- `8000`: Django API
+- `3000`: Student frontend
+- `3001`: Admin frontend
 
-`MAX_INTEGRATION_MODE=mock` keeps notifications inside the product as simulated messages. Use `real` only when a real MAX endpoint and bot token are configured.
+## Demo Accounts
 
-## Demo Users
-
-All demo users use password `demo12345`.
+All seeded demo users use password `demo12345`.
 
 - Admin: `admin@demo.local`
 - Editor: `editor@demo.local`
 - Student: `student@demo.local`
 - Second tenant student: `student@north.local`
 
+## Test Data
+
+`python manage.py seed_demo` creates synthetic universities, users, career roles, skills, opportunities, knowledge items, subscriptions, and tenant-isolation marker data. The data is model/demo data, not live university data.
+
+## MAX Integration
+
+Real API base: `https://platform-api2.max.ru`.
+
+Implemented production contract:
+
+- Message send: `POST /messages?user_id=<max_user_id>`
+- Authorization: raw header `Authorization: <MAX_BOT_TOKEN>`
+- Webhook receiver: `POST /api/max/webhook/`
+- Webhook protection: `X-Max-Bot-Api-Secret`
+- Webhook subscription registration: `python manage.py register_max_webhook`
+- Mini-app launch validation: `POST /api/max/launch/` validates signed WebAppData/initData and links `max_user_id`.
+
+Local deterministic mode:
+
+- `MAX_INTEGRATION_MODE=mock`
+- Notifications are created and marked `delivery_status=simulated`
+- No real MAX network call is made
+
+## Manual Smoke Check
+
+1. Start stack with `docker compose up --build`.
+2. Open student app and login as `student@demo.local / demo12345`.
+3. Complete onboarding or update `/profile` skills.
+4. Open Career GPS and verify readiness/gaps reflect selected skills.
+5. Open Opportunities, save one item, create subscription topic `Backend`.
+6. Open admin app and login as `admin@demo.local / demo12345`.
+7. Create an active opportunity with requirements `Python`, `Django`, `REST`.
+8. Verify backend creates one notification for the matching subscription.
+9. In mock mode, notification has `delivery_status=simulated`.
+10. In real mode, linked students receive a MAX message with an `open_app` button returning to `opportunity_<id>`.
+
+Expected result: the student can return to the opportunity and see match percentage, reasons, gaps, and save state without manual DB edits.
+
+## API
+
+The documented scenario API lives in `openapi.yaml`. The contest check file is `DATA-API.yaml`.
+
+Most-used endpoints:
+
+- `POST /api/auth/login/`
+- `POST /api/auth/register/`
+- `POST /api/max/launch/`
+- `POST /api/max/webhook/`
+- `POST /api/onboarding`
+- `GET /api/student/profile`
+- `GET /api/student/career-gps`
+- `GET /api/student/opportunities`
+- `GET /api/student/opportunities/{id}`
+- `POST /api/student/opportunities/{id}/save`
+- `GET|POST /api/student/subscriptions`
+- `GET /api/knowledge/search?q=...`
+- `GET|POST /api/admin/opportunities`
+- `GET /api/admin/analytics`
+
 ## Tests
+
+Backend:
 
 ```bash
 cd backend
 set DB_ENGINE=sqlite
-./.venv/Scripts/python -c "import os, pytest; os.environ['DB_ENGINE']='sqlite'; raise SystemExit(pytest.main())"
+python -m pytest
 ```
+
+Frontend:
 
 ```bash
 cd frontend-student
@@ -118,30 +189,26 @@ npm run test
 npm run build
 ```
 
-## API Overview
+Operational commands:
 
-- `POST /api/auth/login/`, `POST /api/auth/register/`, `GET /api/auth/profile/`
-- `GET /api/universities`, `GET /api/institutes`, `GET /api/interests`, `POST /api/onboarding`
-- `GET /api/student/career-gps`, `GET /api/career/goals`, `GET /api/career/analysis/<id>`
-- `GET /api/student/opportunities`, `POST|DELETE /api/student/opportunities/<id>/save`
-- `GET|POST /api/student/subscriptions`
-- `GET /api/knowledge/search`
-- `GET|POST /api/admin/opportunities`, `GET|PATCH|DELETE /api/admin/opportunities/<id>`
-- `GET|POST /api/admin/knowledge`, `GET|PATCH|DELETE /api/admin/knowledge/<id>`
-- `GET|POST /api/admin/career-roles`, `GET|PATCH|DELETE /api/admin/career-roles/<id>`
-- `GET /api/admin/analytics`
+```bash
+python manage.py retry_failed_notifications --limit 100
+python manage.py register_max_webhook
+```
 
-## Matching
+## Security Notes
 
-Opportunity matching is deterministic. The service compares student profile interests, skills, course, and career goal with opportunity type, title, description, audience, and required skills. Results include a percentage, reasons, and skill gaps.
+- Public registration only creates student accounts and rejects privileged roles.
+- MAX bot token is read only by backend.
+- Webhook requests are protected by `X-Max-Bot-Api-Secret`.
+- Notification delivery state, read state, provider message id, timestamps, and idempotency key are stored separately.
+- Duplicate publish/webhook events do not create duplicate notification records.
+- See `SECURITY.md` for secret handling and scan commands.
 
-## Career GPS
+## Known Limitations
 
-Career GPS compares the student's confirmed skills with a target career role. It returns readiness score, strengths, gaps, and next actions that are readable enough for a student UI and stable enough for tests.
-
-## MVP Limits
-
-- Knowledge search is deterministic keyword matching, not semantic retrieval.
-- MAX delivery defaults to mock mode; real delivery is isolated behind an adapter.
-- Demo institutes/programs are static MVP reference data.
-- Multi-tenant isolation is implemented by university fields and tested for key student flows, but it is not a full enterprise tenant system yet.
+- `mock` MAX mode is deterministic local simulation, not proof of production delivery.
+- Knowledge search is deterministic keyword matching over seeded verified records.
+- Demo data is synthetic.
+- JWT refresh is present in backend but not fully wired into frontend UX.
+- Production deployment must provide public HTTPS, strict allowed hosts/CORS, and real MAX bot settings.

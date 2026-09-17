@@ -26,11 +26,24 @@ interface Interest {
   name: string;
 }
 
+interface SkillOption {
+  id: string;
+  name: string;
+  category: string;
+}
+
+interface SelectedSkill {
+  name: string;
+  level: number;
+}
+
 interface OnboardingData {
   universityId: string;
   instituteId: string;
   courseId: string;
+  studyYear: string;
   interests: string[];
+  skills: SelectedSkill[];
   careerGoal: string;
 }
 
@@ -68,6 +81,11 @@ const fetchInterests = async (): Promise<Interest[]> => {
   return response.data;
 };
 
+const fetchSkills = async (): Promise<SkillOption[]> => {
+  const response = await apiClient.get('/skills');
+  return response.data;
+};
+
 const submitOnboarding = async (data: OnboardingData): Promise<void> => {
   await apiClient.post('/onboarding', data);
 };
@@ -78,7 +96,9 @@ const useOnboardingState = () => {
     universityId: '',
     instituteId: '',
     courseId: '',
+    studyYear: '',
     interests: [],
+    skills: [],
     careerGoal: '',
   });
 
@@ -260,7 +280,7 @@ const CourseStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => 
     enabled: !!data.instituteId,
   });
 
-  const isValid = data.courseId !== '';
+  const isValid = data.courseId !== '' && data.studyYear !== '';
 
   return (
     <div className="space-y-6">
@@ -308,6 +328,25 @@ const CourseStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => 
           <p className="text-gray-600">No courses available</p>
         </div>
       )}
+
+      <div>
+        <label htmlFor="studyYear" className="block text-sm font-medium text-gray-700">
+          Year of study
+        </label>
+        <select
+          id="studyYear"
+          value={data.studyYear}
+          onChange={(e) => onChange('studyYear', e.target.value)}
+          className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Select year</option>
+          {[1, 2, 3, 4, 5, 6].map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="flex justify-between pt-4">
         <button
@@ -428,7 +467,125 @@ const InterestsStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) 
   );
 };
 
-// Step 5: Career Goal
+// Step 5: Skills Selection
+const SkillsStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => {
+  const { data: skills, isLoading, error, refetch } = useQuery({
+    queryKey: ['skills'],
+    queryFn: fetchSkills,
+  });
+
+  const selected = new Map(data.skills.map((skill) => [skill.name, skill]));
+  const toggleSkill = (name: string) => {
+    const current = data.skills;
+    const updated = selected.has(name)
+      ? current.filter((item) => item.name !== name)
+      : [...current, { name, level: 3 }];
+    onChange('skills', updated);
+  };
+  const updateLevel = (name: string, level: number) => {
+    onChange(
+      'skills',
+      data.skills.map((item) => (item.name === name ? { ...item, level } : item)),
+    );
+  };
+  const isValid = data.skills.length > 0;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Select Your Skills</h2>
+        <p className="mt-2 text-sm text-gray-600">
+          Choose the skills you can already use in projects
+        </p>
+      </div>
+
+      {error && (
+        <div className="rounded-md bg-red-50 p-4" role="alert">
+          <p className="text-sm text-red-800">
+            {error instanceof Error ? error.message : 'An error occurred'}
+          </p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="mt-3 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status">
+            <span className="sr-only">Loading skills...</span>
+          </div>
+        </div>
+      ) : skills && skills.length > 0 ? (
+        <div className="space-y-3">
+          {skills.map((skill) => {
+            const value = selected.get(skill.name);
+            return (
+              <div
+                key={skill.id}
+                className={`rounded-lg border-2 p-4 ${
+                  value ? 'border-blue-600 bg-blue-50' : 'border-gray-200'
+                }`}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <button
+                    type="button"
+                    onClick={() => toggleSkill(skill.name)}
+                    className="text-left font-medium text-gray-900"
+                    aria-pressed={Boolean(value)}
+                  >
+                    {skill.name}
+                  </button>
+                  {value && (
+                    <select
+                      value={value.level}
+                      onChange={(e) => updateLevel(skill.name, Number(e.target.value))}
+                      className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      aria-label={`${skill.name} level`}
+                    >
+                      <option value={2}>Beginner</option>
+                      <option value={3}>Intermediate</option>
+                      <option value={4}>Advanced</option>
+                      <option value={5}>Expert</option>
+                    </select>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-md bg-gray-50 p-8 text-center">
+          <p className="text-gray-600">No skills available</p>
+        </div>
+      )}
+
+      <div className="flex justify-between pt-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={!isValid}
+          className="rounded-lg bg-blue-600 px-6 py-2.5 font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Step 6: Career Goal
 const CareerGoalStep: React.FC<StepProps & { isSubmitting: boolean }> = ({
   data,
   onChange,
@@ -505,7 +662,8 @@ const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({ currentStep, tota
     { number: 2, label: 'Institute' },
     { number: 3, label: 'Course' },
     { number: 4, label: 'Interests' },
-    { number: 5, label: 'Career Goal' },
+    { number: 5, label: 'Skills' },
+    { number: 6, label: 'Career Goal' },
   ];
 
   return (
@@ -578,7 +736,7 @@ const Onboarding: React.FC = () => {
   });
 
   const handleNext = () => {
-    setCurrentStep((prev) => Math.min(prev + 1, 5));
+    setCurrentStep((prev) => Math.min(prev + 1, 6));
   };
 
   const handleBack = () => {
@@ -607,7 +765,7 @@ const Onboarding: React.FC = () => {
           </p>
         </div>
 
-        <ProgressIndicator currentStep={currentStep} totalSteps={5} />
+        <ProgressIndicator currentStep={currentStep} totalSteps={6} />
 
         <div className="rounded-lg bg-white p-6 shadow-md sm:p-8">
           <form onSubmit={handleSubmit}>
@@ -634,6 +792,9 @@ const Onboarding: React.FC = () => {
               <InterestsStep {...stepProps} isFirst={false} isLast={false} />
             )}
             {currentStep === 5 && (
+              <SkillsStep {...stepProps} isFirst={false} isLast={false} />
+            )}
+            {currentStep === 6 && (
               <CareerGoalStep
                 {...stepProps}
                 isFirst={false}
@@ -645,7 +806,7 @@ const Onboarding: React.FC = () => {
         </div>
 
         <div className="mt-6 text-center text-sm text-gray-500">
-          Step {currentStep} of 5
+          Step {currentStep} of 6
         </div>
       </div>
     </div>

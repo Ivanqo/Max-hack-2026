@@ -1,0 +1,452 @@
+openapi: 3.0.3
+info:
+  title: UniPath MAX API
+  version: 1.0.0
+  description: API contract for the MAX end-to-end demo scenario.
+servers:
+  - url: http://localhost:8000
+security:
+  - bearerAuth: []
+paths:
+  /api/health/:
+    get:
+      security: []
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+  /api/auth/register/:
+    post:
+      security: []
+      summary: Register a public student account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Student account and JWT tokens
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /api/auth/login/:
+    post:
+      security: []
+      summary: Login and receive JWT tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: JWT tokens and user profile
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/max/launch/:
+    post:
+      security: []
+      summary: Validate MAX mini-app initData and link MAX identity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [initData]
+              properties:
+                initData:
+                  type: string
+                  description: Signed MAX WebAppData/initData string.
+      responses:
+        '200':
+          description: Local JWT tokens and linked MAX identity
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: MAX account is already linked to another local user
+  /api/max/webhook/:
+    post:
+      security: []
+      summary: MAX Bot API webhook receiver
+      parameters:
+        - in: header
+          name: X-Max-Bot-Api-Secret
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Update accepted idempotently
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/universities:
+    get:
+      summary: List universities for onboarding
+      responses:
+        '200':
+          description: Universities
+  /api/institutes:
+    get:
+      summary: List institutes for onboarding
+      parameters:
+        - in: query
+          name: universityId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Institutes
+  /api/courses:
+    get:
+      summary: List programs/courses for onboarding
+      parameters:
+        - in: query
+          name: instituteId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Programs
+  /api/interests:
+    get:
+      summary: List interests
+      responses:
+        '200':
+          description: Interests
+  /api/skills:
+    get:
+      summary: List skills available to current student
+      responses:
+        '200':
+          description: Skills
+  /api/onboarding:
+    post:
+      summary: Complete onboarding with profile, interests, skills, and career goal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardingRequest'
+      responses:
+        '200':
+          description: Onboarding completed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/student/profile:
+    get:
+      summary: Get current student profile, skills, and subscriptions
+      responses:
+        '200':
+          description: Student profile
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update current student skills/profile fields
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfilePatch'
+      responses:
+        '200':
+          description: Updated profile
+  /api/student/career-gps:
+    get:
+      summary: Get Career GPS summary from saved profile and skills
+      responses:
+        '200':
+          description: Career GPS summary
+  /api/career/goals:
+    get:
+      summary: List career goals/roles
+      responses:
+        '200':
+          description: Career goals
+  /api/career/analysis/{roleId}:
+    get:
+      summary: Get detailed Career GPS analysis
+      parameters:
+        - in: path
+          name: roleId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Analysis with readiness, strengths, gaps, and actions
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/student/opportunities:
+    get:
+      summary: Get ranked opportunities for current student
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+        - in: query
+          name: minMatch
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Matched opportunities
+  /api/student/opportunities/{id}:
+    get:
+      summary: Open one opportunity with match score/reasons/gaps
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Opportunity detail with match
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/student/opportunities/{id}/save:
+    post:
+      summary: Save an opportunity
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Saved
+    delete:
+      summary: Unsave an opportunity
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Removed
+  /api/student/subscriptions:
+    get:
+      summary: List current student subscriptions
+      responses:
+        '200':
+          description: Subscriptions
+    post:
+      summary: Create a subscription for proactive MAX notifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionRequest'
+      responses:
+        '201':
+          description: Created subscription
+  /api/knowledge/search:
+    get:
+      summary: Search verified knowledge base
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Search result
+  /api/admin/opportunities:
+    get:
+      summary: Admin list opportunities including inactive/draft items
+      responses:
+        '200':
+          description: Admin opportunities
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      summary: Admin create/publish an opportunity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminOpportunityRequest'
+      responses:
+        '201':
+          description: Created opportunity; matching subscriptions create idempotent notifications
+  /api/admin/opportunities/{id}:
+    put:
+      summary: Admin update/publish an opportunity
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated opportunity
+    delete:
+      summary: Admin delete an opportunity
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Deleted
+  /api/admin/analytics:
+    get:
+      summary: Admin analytics summary
+      responses:
+        '200':
+          description: Analytics
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Invalid request
+    Unauthorized:
+      description: Missing or invalid JWT
+    Forbidden:
+      description: Authenticated user lacks required role or webhook secret is invalid
+    NotFound:
+      description: Resource not found
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, password2, first_name, last_name]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        password2:
+          type: string
+          format: password
+        first_name:
+          type: string
+        last_name:
+          type: string
+        role:
+          type: string
+          enum: [student]
+          description: Optional; privileged roles are rejected.
+        university:
+          type: string
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    OnboardingRequest:
+      type: object
+      required: [universityId, instituteId, courseId, studyYear, interests, skills, careerGoal]
+      properties:
+        universityId:
+          type: string
+        instituteId:
+          type: string
+        courseId:
+          type: string
+        studyYear:
+          type: string
+          example: '3'
+        interests:
+          type: array
+          items:
+            type: string
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillInput'
+        careerGoal:
+          type: string
+          example: Backend Developer
+    SkillInput:
+      type: object
+      required: [name, level]
+      properties:
+        name:
+          type: string
+        level:
+          type: integer
+          minimum: 1
+          maximum: 5
+    ProfilePatch:
+      type: object
+      properties:
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillInput'
+        interests:
+          type: array
+          items:
+            type: string
+        careerGoal:
+          type: string
+        studyYear:
+          type: string
+    SubscriptionRequest:
+      type: object
+      required: [topic]
+      properties:
+        topic:
+          type: string
+        filters:
+          type: object
+          additionalProperties: true
+        active:
+          type: boolean
+          default: true
+    AdminOpportunityRequest:
+      type: object
+      required: [title, company, description, type, location, requirements, status]
+      properties:
+        title:
+          type: string
+        company:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [internship, job, project, hackathon, event, course]
+        location:
+          type: string
+        remote:
+          type: boolean
+        requirements:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, inactive]

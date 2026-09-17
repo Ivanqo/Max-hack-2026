@@ -9,7 +9,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.analytics.models import AuditLog, InteractionEvent
-from apps.careers.models import CareerRole, CareerRoleSkill, Skill
+from apps.careers.models import CareerRole, CareerRoleSkill, Skill, StudentSkill
 from apps.careers.services import CareerGPSService
 from apps.knowledge.services import KnowledgeSearchService
 from apps.knowledge.models import KnowledgeItem
@@ -43,6 +43,13 @@ DEMO_INTERESTS = [
     {'id': 'практика', 'name': 'Практика'},
     {'id': 'Data Analysis', 'name': 'Data Analysis'},
 ]
+
+SKILL_LEVELS = {
+    'beginner': 2,
+    'intermediate': 3,
+    'advanced': 4,
+    'expert': 5,
+}
 
 
 DEMO_COURSES = [
@@ -199,6 +206,27 @@ def _serialize_role(role):
     }
 
 
+def _serialize_student_skill(item):
+    return {
+        'id': str(item.id),
+        'name': item.skill.name,
+        'level': item.level,
+        'levelLabel': _level_label(item.level),
+        'verified': item.verified,
+        'evidence': item.evidence or '',
+    }
+
+
+def _level_label(level):
+    if level >= 5:
+        return 'expert'
+    if level >= 4:
+        return 'advanced'
+    if level >= 3:
+        return 'intermediate'
+    return 'beginner'
+
+
 def _serialize_knowledge(item):
     return {
         'id': str(item.id),
@@ -251,6 +279,22 @@ def interests(request):
     return Response(DEMO_INTERESTS)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def skills(request):
+    queryset = Skill.objects.filter(
+        Q(university=_university(request.user)) | Q(university__isnull=True)
+    ).order_by('category', 'name')
+    return Response([
+        {
+            'id': str(item.id),
+            'name': item.name,
+            'category': item.category,
+        }
+        for item in queryset
+    ])
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def onboarding(request):
@@ -267,19 +311,71 @@ def onboarding(request):
 
     request.user.university = university_name
     request.user.save(update_fields=['university'])
-    StudentProfile.objects.update_or_create(
+    profile, _ = StudentProfile.objects.update_or_create(
         user=request.user,
         defaults={
             'university': university_name,
             'institute': institute,
-            'course': 3,
+            'course': _course_year(request.data.get('studyYear')),
             'program': program,
             'interests': request.data.get('interests') or [],
             'career_goal': goal,
             'onboarding_completed': True,
         },
     )
+    _sync_student_skills(
+        profile,
+        _skill_specs(request.data.get('skills') or request.data.get('interests') or []),
+    )
     return Response({'completed': True})
+
+
+def _course_year(value):
+    try:
+        year = int(value)
+    except (TypeError, ValueError):
+        return None
+    return year if 1 <= year <= 6 else None
+
+
+def _skill_specs(items):
+    specs = []
+    for item in items:
+        if isinstance(item, str):
+            name = item.strip()
+            level = 3
+        elif isinstance(item, dict):
+            name = str(item.get('name') or item.get('skill') or '').strip()
+            raw_level = item.get('level', 3)
+            level = SKILL_LEVELS.get(str(raw_level).lower(), raw_level)
+        else:
+            continue
+        try:
+            level = int(level)
+        except (TypeError, ValueError):
+            level = 3
+        if name:
+            specs.append({'name': name[:200], 'level': min(max(level, 1), 5)})
+    return specs
+
+
+def _sync_student_skills(profile, specs):
+    names = [spec['name'] for spec in specs]
+    if names:
+        profile.skills.exclude(skill__name__in=names).delete()
+    else:
+        profile.skills.all().delete()
+    for spec in specs:
+        skill, _ = Skill.objects.get_or_create(
+            university=profile.university,
+            name=spec['name'],
+            defaults={'category': 'technical'},
+        )
+        StudentSkill.objects.update_or_create(
+            student=profile,
+            skill=skill,
+            defaults={'level': spec['level'], 'evidence': 'Declared during onboarding/profile update'},
+        )
 
 
 @api_view(['GET'])
@@ -454,6 +550,30 @@ def student_opportunities(request):
     return Response(data)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def student_opportunity_detail(request, pk):
+    try:
+        item = Opportunity.objects.get(
+            pk=pk,
+            university=_university(request.user),
+            published=True,
+            verified_status='verified',
+        )
+    except Opportunity.DoesNotExist:
+        return Response({'detail': 'Opportunity not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    match = OpportunityMatchingService().calculate_for_user(request.user, item)
+    InteractionEvent.objects.create(
+        university=_university(request.user),
+        user=request.user,
+        event_type='opportunity_open',
+        entity_type='opportunity',
+        entity_id=str(item.id),
+    )
+    return Response(_serialize_opportunity(item, user=request.user, match=match))
+
+
 @api_view(['POST', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def student_save_opportunity(request, pk):
@@ -480,6 +600,74 @@ def student_save_opportunity(request, pk):
         entity_id=str(item.id),
     )
     return Response({'saved': True})
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def student_profile(request):
+    profile = getattr(request.user, 'student_profile', None)
+    if not profile:
+        if request.method == 'GET':
+            return Response({'detail': 'Profile not found.'}, status=status.HTTP_404_NOT_FOUND)
+        profile = StudentProfile.objects.create(
+            user=request.user,
+            university=_university(request.user),
+            onboarding_completed=False,
+        )
+
+    if request.method == 'PATCH':
+        data = request.data
+        request.user.first_name = data.get('firstName', request.user.first_name)
+        request.user.last_name = data.get('lastName', request.user.last_name)
+        request.user.university = data.get('university', request.user.university)
+        request.user.save(update_fields=['first_name', 'last_name', 'university'])
+
+        profile.university = data.get('university', profile.university)
+        profile.institute = data.get('institute', profile.institute)
+        profile.program = data.get('program', profile.program)
+        if 'studyYear' in data:
+            profile.course = _course_year(data.get('studyYear'))
+        if 'interests' in data:
+            profile.interests = data.get('interests') or []
+        if data.get('careerGoal'):
+            goal, _ = CareerGoal.objects.get_or_create(
+                name=str(data['careerGoal'])[:255],
+                defaults={'description': 'Career goal selected in profile.', 'is_active': True},
+            )
+            profile.career_goal = goal
+        profile.save()
+        if 'skills' in data:
+            _sync_student_skills(profile, _skill_specs(data.get('skills') or []))
+
+    return Response(_serialize_student_profile(request.user, profile))
+
+
+def _serialize_student_profile(user, profile):
+    skills = profile.skills.select_related('skill').order_by('-level', 'skill__name')
+    subscriptions = Subscription.objects.filter(student=user).order_by('-updated_at')
+    return {
+        'user': {
+            'id': user.id,
+            'email': user.email,
+            'firstName': user.first_name,
+            'lastName': user.last_name,
+            'name': user.get_full_name(),
+            'role': user.role,
+            'maxUserId': user.max_user_id,
+        },
+        'profile': {
+            'university': profile.university,
+            'institute': profile.institute,
+            'program': profile.program,
+            'studyYear': profile.course,
+            'interests': profile.interests or [],
+            'careerGoal': profile.career_goal.name if profile.career_goal else '',
+            'onboardingCompleted': profile.onboarding_completed,
+            'updatedAt': profile.updated_at.isoformat(),
+        },
+        'skills': [_serialize_student_skill(item) for item in skills],
+        'subscriptions': [_serialize_subscription(item) for item in subscriptions],
+    }
 
 
 @api_view(['GET', 'POST'])

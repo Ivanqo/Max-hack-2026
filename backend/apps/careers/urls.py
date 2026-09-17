@@ -32,17 +32,17 @@ def health_check(request):
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
         health_status['database'] = 'connected'
-    except Exception as e:
+    except Exception:
         health_status['status'] = 'unhealthy'
-        health_status['database'] = f'error: {str(e)}'
+        health_status['database'] = 'error'
 
     # Check cache (if configured)
     try:
         cache.set('health_check', 'ok', 10)
         cache_status = cache.get('health_check')
         health_status['cache'] = 'connected' if cache_status == 'ok' else 'disconnected'
-    except Exception as e:
-        health_status['cache'] = f'error: {str(e)}'
+    except Exception:
+        health_status['cache'] = 'error'
 
     return Response(health_status)
 

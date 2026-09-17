@@ -60,4 +60,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/api/health/ || exit 1
 
-CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 120 config.wsgi:application"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && if [ \"$AUTO_SEED_DEMO\" = \"true\" ]; then python manage.py seed_demo; fi && gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 120 config.wsgi:application"]

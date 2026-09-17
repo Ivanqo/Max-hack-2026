@@ -21,7 +21,7 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 FROM base as builder
 
 # Install dependencies
-RUN npm install && \
+RUN npm ci && \
     npm cache clean --force
 
 # Copy source code

@@ -98,9 +98,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(queryset, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
-        except Exception as e:
+        except Exception:
             return Response(
-                {'error': 'Failed to retrieve notifications', 'detail': str(e)},
+                {'error': 'Failed to retrieve notifications'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -118,9 +118,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 {'error': 'Notification not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        except Exception as e:
+        except Exception:
             return Response(
-                {'error': 'Failed to retrieve notification', 'detail': str(e)},
+                {'error': 'Failed to retrieve notification'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -155,9 +155,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 headers=headers
             )
 
-        except Exception as e:
+        except Exception:
             return Response(
-                {'error': 'Failed to create notification', 'detail': str(e)},
+                {'error': 'Failed to create notification'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -191,9 +191,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 {'error': 'Notification not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        except Exception as e:
+        except Exception:
             return Response(
-                {'error': 'Failed to update notification', 'detail': str(e)},
+                {'error': 'Failed to update notification'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -221,9 +221,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 {'error': 'Notification not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        except Exception as e:
+        except Exception:
             return Response(
-                {'error': 'Failed to delete notification', 'detail': str(e)},
+                {'error': 'Failed to delete notification'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -236,7 +236,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
             if request.user.role == 'student':
                 count = Notification.objects.filter(
                     student=request.user,
-                    status=Notification.Status.PENDING
+                    read_at__isnull=True
                 ).count()
 
                 return Response({'count': count}, status=status.HTTP_200_OK)
@@ -246,9 +246,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        except Exception as e:
+        except Exception:
             return Response(
-                {'error': 'Failed to count unread notifications', 'detail': str(e)},
+                {'error': 'Failed to count unread notifications'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -259,7 +259,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         """
         try:
             notification = self.get_object()
-            notification.mark_as_sent()
+            notification.mark_as_read()
 
             serializer = NotificationSerializer(notification)
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -269,8 +269,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 {'error': 'Notification not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        except Exception as e:
+        except Exception:
             return Response(
-                {'error': 'Failed to mark notification as read', 'detail': str(e)},
+                {'error': 'Failed to mark notification as read'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

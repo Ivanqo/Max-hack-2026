@@ -33,6 +33,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         style={'input_type': 'password'},
         label='Confirm Password'
     )
+    role = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = User
@@ -43,7 +44,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'first_name': {'required': True},
             'last_name': {'required': True},
-            'role': {'required': True},
         }
 
     def validate_email(self, value):
@@ -57,10 +57,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Password fields didn't match."})
 
-        # Validate role
-        valid_roles = [choice[0] for choice in User.ROLE_CHOICES]
-        if attrs.get('role') not in valid_roles:
-            raise serializers.ValidationError({"role": f"Invalid role. Must be one of {valid_roles}."})
+        # Public self-registration must never grant privileged roles.
+        requested_role = attrs.get('role', 'student')
+        if requested_role != 'student':
+            raise serializers.ValidationError({
+                "role": "Public registration only supports student accounts."
+            })
 
         return attrs
 
@@ -68,6 +70,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         """Create a new user with encrypted password."""
         validated_data.pop('password2')
         password = validated_data.pop('password')
+        validated_data.pop('role', None)
+        validated_data['role'] = 'student'
         user = User.objects.create_user(password=password, **validated_data)
         return user
 

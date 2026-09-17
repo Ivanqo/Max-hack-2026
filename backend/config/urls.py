@@ -12,6 +12,7 @@ from apps.accounts.views import (
     UserProfileView,
     UserRegistrationView,
 )
+from apps.notifications.max_views import MaxLaunchView, MaxWebhookView
 from . import mvp_views
 
 
@@ -22,11 +23,14 @@ urlpatterns = [
     path('api/universities', mvp_views.universities, name='mvp_universities'),
     path('api/institutes', mvp_views.institutes, name='mvp_institutes'),
     path('api/interests', mvp_views.interests, name='mvp_interests'),
+    path('api/skills', mvp_views.skills, name='mvp_skills'),
     path('api/onboarding', mvp_views.onboarding, name='mvp_onboarding'),
     path('api/auth/register/', UserRegistrationView.as_view(), name='auth_register_alias'),
     path('api/auth/login/', CustomTokenObtainPairView.as_view(), name='auth_login_alias'),
     path('api/auth/profile/', UserProfileView.as_view(), name='auth_profile_alias'),
     path('api/auth/change-password/', ChangePasswordView.as_view(), name='auth_change_password_alias'),
+    path('api/max/launch/', MaxLaunchView.as_view(), name='max_launch'),
+    path('api/max/webhook/', MaxWebhookView.as_view(), name='max_webhook'),
     path('api/courses', mvp_views.courses, name='mvp_courses'),
     path('api/courses/<int:course_id>', mvp_views.course_detail, name='mvp_course_detail'),
     path('api/courses/<int:course_id>/enroll', mvp_views.enroll_course, name='mvp_enroll_course'),
@@ -36,7 +40,9 @@ urlpatterns = [
     path('api/admin/analytics', mvp_views.admin_analytics, name='mvp_admin_analytics'),
     path('api/opportunities', mvp_views.opportunities, name='mvp_opportunities'),
     path('api/student/career-gps', mvp_views.student_career_gps, name='mvp_student_career_gps'),
+    path('api/student/profile', mvp_views.student_profile, name='mvp_student_profile'),
     path('api/student/opportunities', mvp_views.student_opportunities, name='mvp_student_opportunities'),
+    path('api/student/opportunities/<int:pk>', mvp_views.student_opportunity_detail, name='mvp_student_opportunity_detail'),
     path('api/student/opportunities/<int:pk>/save', mvp_views.student_save_opportunity, name='mvp_student_save_opportunity'),
     path('api/student/subscriptions', mvp_views.student_subscriptions, name='mvp_student_subscriptions'),
     path('api/career/goals', mvp_views.student_career_goals, name='mvp_student_career_goals'),

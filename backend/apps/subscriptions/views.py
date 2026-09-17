@@ -82,9 +82,9 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
                 response_serializer.data,
                 status=status.HTTP_201_CREATED
             )
-        except Exception as e:
+        except Exception:
             return Response(
-                {'error': f'Failed to create subscription: {str(e)}'},
+                {'error': 'Failed to create subscription.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -101,9 +101,9 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
             subscription = serializer.save()
             response_serializer = SubscriptionSerializer(subscription)
             return Response(response_serializer.data)
-        except Exception as e:
+        except Exception:
             return Response(
-                {'error': f'Failed to update subscription: {str(e)}'},
+                {'error': 'Failed to update subscription.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -125,9 +125,9 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
                 {'message': 'Subscription deleted successfully.'},
                 status=status.HTTP_204_NO_CONTENT
             )
-        except Exception as e:
+        except Exception:
             return Response(
-                {'error': f'Failed to delete subscription: {str(e)}'},
+                {'error': 'Failed to delete subscription.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -179,9 +179,9 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_200_OK
             )
-        except Exception as e:
+        except Exception:
             return Response(
-                {'error': f'Failed to toggle subscription status: {str(e)}'},
+                {'error': 'Failed to toggle subscription status.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 

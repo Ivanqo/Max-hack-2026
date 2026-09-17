@@ -220,7 +220,13 @@ SIMPLE_JWT = {
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
-MAX_API_URL = os.getenv('MAX_API_URL', '')
+MAX_API_URL = os.getenv('MAX_API_URL', 'https://platform-api2.max.ru')
 MAX_BOT_TOKEN = os.getenv('MAX_BOT_TOKEN', '')
 MAX_INTEGRATION_MODE = os.getenv('MAX_INTEGRATION_MODE', 'mock')
+MAX_WEBHOOK_SECRET = os.getenv('MAX_WEBHOOK_SECRET', '')
+MAX_WEBHOOK_URL = os.getenv('MAX_WEBHOOK_URL', '')
+MAX_WEBAPP_BASE_URL = os.getenv('MAX_WEBAPP_BASE_URL', 'http://localhost:3000')
+MAX_INITDATA_MAX_AGE_SECONDS = int(os.getenv('MAX_INITDATA_MAX_AGE_SECONDS', '86400'))
 USE_MOCK_MAX_CLIENT = MAX_INTEGRATION_MODE != 'real'
+
+AUTO_SEED_DEMO = os.getenv('AUTO_SEED_DEMO', 'false').lower() == 'true'

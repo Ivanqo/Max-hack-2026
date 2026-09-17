@@ -8,6 +8,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from .serializers import (
     UserSerializer,
@@ -53,10 +54,15 @@ class UserRegistrationView(generics.CreateAPIView):
                 'message': 'Registration successful.'
             }, status=status.HTTP_201_CREATED)
 
-        except Exception as e:
+        except ValidationError as exc:
             return Response({
                 'error': 'Registration failed.',
-                'detail': str(e)
+                'detail': exc.detail
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({
+                'error': 'Registration failed.',
+                'detail': 'Invalid registration data.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -84,7 +90,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
             return response
 
-        except Exception as e:
+        except Exception:
             return Response({
                 'error': 'Login failed.',
                 'detail': 'Invalid credentials.'
@@ -125,10 +131,15 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
                 'message': 'Profile updated successfully.'
             }, status=status.HTTP_200_OK)
 
-        except Exception as e:
+        except ValidationError as exc:
             return Response({
                 'error': 'Profile update failed.',
-                'detail': str(e)
+                'detail': exc.detail
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({
+                'error': 'Profile update failed.',
+                'detail': 'Invalid profile data.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -158,10 +169,15 @@ class ChangePasswordView(APIView):
                 'message': 'Password updated successfully.'
             }, status=status.HTTP_200_OK)
 
-        except Exception as e:
+        except ValidationError as exc:
             return Response({
                 'error': 'Password change failed.',
-                'detail': str(e) if not isinstance(e, Exception) else 'Invalid data provided.'
+                'detail': exc.detail
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({
+                'error': 'Password change failed.',
+                'detail': 'Invalid data provided.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -194,10 +210,10 @@ class LogoutView(APIView):
                 'detail': 'Invalid token or token already blacklisted.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        except Exception as e:
+        except Exception:
             return Response({
                 'error': 'Logout failed.',
-                'detail': str(e)
+                'detail': 'Invalid logout request.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -223,11 +239,11 @@ class HealthCheckView(APIView):
                 'version': '1.0.0'
             }, status=status.HTTP_200_OK)
 
-        except Exception as e:
+        except Exception:
             return Response({
                 'status': 'unhealthy',
                 'timestamp': timezone.now().isoformat(),
-                'error': str(e)
+                'error': 'Health check failed.'
             }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 

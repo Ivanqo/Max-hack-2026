@@ -25,10 +25,29 @@ class NotificationSerializer(serializers.ModelSerializer):
             'opportunity_type',
             'status',
             'status_display',
+            'delivery_status',
+            'provider',
+            'provider_message_id',
+            'idempotency_key',
+            'last_error',
             'created_at',
             'sent_at',
+            'failed_at',
+            'read_at',
         ]
-        read_only_fields = ['id', 'created_at', 'sent_at', 'status']
+        read_only_fields = [
+            'id',
+            'created_at',
+            'sent_at',
+            'failed_at',
+            'read_at',
+            'status',
+            'delivery_status',
+            'provider',
+            'provider_message_id',
+            'idempotency_key',
+            'last_error',
+        ]
 
 
 class NotificationListSerializer(serializers.ModelSerializer):
@@ -46,8 +65,10 @@ class NotificationListSerializer(serializers.ModelSerializer):
             'opportunity_title',
             'status',
             'status_display',
+            'delivery_status',
             'created_at',
             'sent_at',
+            'read_at',
         ]
         read_only_fields = fields
 

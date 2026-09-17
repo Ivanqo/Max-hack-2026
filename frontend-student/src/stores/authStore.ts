@@ -14,9 +14,15 @@ interface AuthState {
   token: string | null
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, name: string) => Promise<void>
+  completeMaxLaunch: (initData: string) => Promise<string | undefined>
   logout: () => void
   checkAuth: () => void
 }
+
+const normalizeUser = (user: any) => ({
+  ...user,
+  name: user.full_name || user.name || user.email,
+})
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -27,10 +33,7 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string) => {
         const response = await apiClient.post('/v1/accounts/login/', { email, password })
         const token = response.data.access
-        const user = {
-          ...response.data.user,
-          name: response.data.user.full_name || response.data.user.email,
-        }
+        const user = normalizeUser(response.data.user)
         set({ token, user })
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`
       },
@@ -46,12 +49,18 @@ export const useAuthStore = create<AuthState>()(
           role: 'student',
         })
         const token = response.data.tokens.access
-        const user = {
-          ...response.data.user,
-          name: response.data.user.full_name || response.data.user.email,
-        }
+        const user = normalizeUser(response.data.user)
         set({ token, user })
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      },
+
+      completeMaxLaunch: async (initData: string) => {
+        const response = await apiClient.post('/max/launch/', { initData })
+        const token = response.data.tokens.access
+        const user = normalizeUser(response.data.user)
+        set({ token, user })
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`
+        return response.data.max?.start_param
       },
 
       logout: () => {
