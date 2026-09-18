@@ -1,6 +1,8 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LogIn, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { Button, Input } from '@/ui';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
@@ -18,65 +20,47 @@ export const Login = () => {
     try {
       await login(email, password);
       navigate('/');
-    } catch (err: any) {
-      setError('Не удалось войти. Проверьте почту, пароль и права доступа.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось войти. Проверьте почту, пароль и права доступа.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Панель администратора</h1>
-          <p className="text-gray-600 mt-2">Войдите, чтобы управлять платформой</p>
+    <div className="flex min-h-screen items-center justify-center bg-brand-gradient-soft p-4">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-gradient text-white shadow-pop">
+            <Sparkles className="h-6 w-6" />
+          </span>
+          <h1 className="text-2xl font-bold text-ink-900">Панель администратора</h1>
+          <p className="mt-1 text-sm text-ink-500">UniPath MAX · управление платформой университета</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl bg-white p-6 shadow-card sm:p-7">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
-              {error}
-            </div>
+            <div className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700" role="alert">{error}</div>
           )}
-
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Электронная почта
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="admin@example.com"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-              Пароль
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Введите пароль"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
-            {loading ? 'Входим...' : 'Войти'}
-          </button>
+          <Input
+            label="Электронная почта"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="admin@demo.local"
+          />
+          <Input
+            label="Пароль"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+          />
+          <Button type="submit" fullWidth loading={loading} leftIcon={<LogIn className="h-4 w-4" />}>Войти</Button>
         </form>
       </div>
     </div>

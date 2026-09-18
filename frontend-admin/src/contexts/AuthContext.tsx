@@ -1,11 +1,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, AuthContextType } from '@/types';
+import { User, AuthContextType, MANAGER_ROLES } from '@/types';
 import api from '@/api/client';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const MANAGER_ROLES = ['admin', 'editor', 'institute_admin', 'university_admin'];
-
+// eslint-disable-next-line react-refresh/only-export-components -- hook lives with its provider by design
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

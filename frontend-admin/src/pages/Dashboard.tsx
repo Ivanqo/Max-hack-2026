@@ -1,105 +1,137 @@
-import { useEffect, useState } from 'react';
-import { Users, BookOpen, Briefcase, TrendingUp } from 'lucide-react';
-import api from '@/api/client';
-import { Analytics } from '@/types';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { AlertCircle, BookOpen, Briefcase, Plus, Search, TrendingUp, Users } from 'lucide-react';
+import { fetchAnalytics } from '@/api/endpoints';
+import { Badge, Card, ErrorState, LoadingState } from '@/ui';
 
 export const Dashboard = () => {
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['admin-analytics'], queryFn: fetchAnalytics });
 
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        const response = await api.get('/admin/analytics');
-        setAnalytics(response.data);
-      } catch (error) {
-        console.error('Не удалось загрузить аналитику:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAnalytics();
-  }, []);
-
-  if (loading) {
-    return <div>Загрузка...</div>;
-  }
+  if (isLoading) return <LoadingState label="Загружаем панель…" />;
+  if (isError || !data) return <ErrorState onRetry={() => refetch()} />;
 
   const stats = [
-    {
-      label: 'Всего пользователей',
-      value: analytics?.totalUsers || 0,
-      icon: Users,
-      color: 'bg-blue-500',
-    },
-    {
-      label: 'Активные пользователи',
-      value: analytics?.activeUsers || 0,
-      icon: TrendingUp,
-      color: 'bg-green-500',
-    },
-    {
-      label: 'Возможности',
-      value: analytics?.totalOpportunities || 0,
-      icon: Briefcase,
-      color: 'bg-purple-500',
-    },
-    {
-      label: 'Материалы базы знаний',
-      value: analytics?.totalKnowledgeBase || 0,
-      icon: BookOpen,
-      color: 'bg-orange-500',
-    },
+    { label: 'Пользователи', value: data.totalUsers, sub: `${data.activeUsers} активных`, icon: Users, tone: 'bg-brand-100 text-brand-700' },
+    { label: 'Активные возможности', value: data.activeOpportunities, sub: `из ${data.totalOpportunities} всего`, icon: Briefcase, tone: 'bg-accent-100 text-accent-700' },
+    { label: 'Опубликовано материалов', value: data.publishedKnowledge, sub: `из ${data.totalKnowledgeBase} всего`, icon: BookOpen, tone: 'bg-amber-100 text-amber-700' },
+    { label: 'Открытий возможностей', value: data.opportunityViews, sub: `${data.opportunitySaves} сохранений`, icon: TrendingUp, tone: 'bg-sky-100 text-sky-700' },
   ];
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Панель</h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div key={stat.label} className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                </div>
-                <div className={`${stat.color} p-3 rounded-lg`}>
-                  <Icon size={24} className="text-white" />
-                </div>
-              </div>
-            </div>
-          );
-        })}
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-ink-900">Дашборд</h1>
+          <p className="mt-1 text-sm text-ink-500">Актуальное состояние платформы вашего университета.</p>
+        </div>
+        <div className="flex gap-2">
+          <Link to="/opportunities" className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700">
+            <Plus className="h-4 w-4" /> Возможность
+          </Link>
+          <Link to="/knowledge" className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-ink-200 bg-white px-4 text-sm font-medium text-ink-700 hover:bg-ink-50">
+            <Plus className="h-4 w-4" /> Материал
+          </Link>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Рост пользователей</h2>
-          <div className="space-y-2">
-            {analytics?.userGrowth?.slice(-7).map((item) => (
-              <div key={item.date} className="flex justify-between items-center">
-                <span className="text-gray-600">{new Date(item.date).toLocaleDateString()}</span>
-                <span className="font-semibold text-gray-900">Пользователей: {item.count}</span>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {stats.map((stat) => (
+          <Card key={stat.label}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-ink-500">{stat.label}</p>
+                <p className="mt-1 text-3xl font-bold text-ink-900">{stat.value}</p>
+                <p className="mt-0.5 text-xs text-ink-400">{stat.sub}</p>
               </div>
-            ))}
-          </div>
-        </div>
+              <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${stat.tone}`}>
+                <stat.icon className="h-5 w-5" />
+              </span>
+            </div>
+          </Card>
+        ))}
+      </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Популярные карьерные роли</h2>
-          <div className="space-y-2">
-            {analytics?.popularRoles?.slice(0, 5).map((item) => (
-              <div key={item.role} className="flex justify-between items-center">
-                <span className="text-gray-600">{item.role}</span>
-                <span className="font-semibold text-gray-900">Интересов: {item.count}</span>
-              </div>
-            ))}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <div className="mb-4 flex items-center gap-2">
+            <AlertCircle className="h-4.5 w-4.5 text-rose-600" style={{ height: 18, width: 18 }} />
+            <h2 className="text-base font-semibold text-ink-900">Требует внимания: запросы без ответа</h2>
           </div>
-        </div>
+          {data.unansweredQueries.length > 0 ? (
+            <ul className="space-y-2">
+              {data.unansweredQueries.slice(0, 6).map((item) => (
+                <li key={item.query} className="flex items-center justify-between rounded-lg bg-rose-50/60 px-3 py-2 text-sm">
+                  <span className="truncate text-ink-800">«{item.query}»</span>
+                  <Badge tone="danger">{item.count}×</Badge>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-ink-500">Все поисковые запросы студентов находят ответ. Отлично!</p>
+          )}
+          {data.unansweredQueries.length > 0 && (
+            <Link to="/knowledge" className="mt-3 inline-block text-sm font-medium text-brand-600 hover:text-brand-700">
+              Добавить материалы →
+            </Link>
+          )}
+        </Card>
+
+        <Card>
+          <div className="mb-4 flex items-center gap-2">
+            <Search className="h-4.5 w-4.5 text-brand-600" style={{ height: 18, width: 18 }} />
+            <h2 className="text-base font-semibold text-ink-900">Популярные запросы</h2>
+          </div>
+          {data.topSearchQueries.length > 0 ? (
+            <ul className="space-y-2">
+              {data.topSearchQueries.slice(0, 6).map((item) => (
+                <li key={item.query} className="flex items-center justify-between text-sm">
+                  <span className="truncate text-ink-700">«{item.query}»</span>
+                  <span className="font-semibold text-ink-900">{item.count}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-ink-500">Пока нет данных о поисковых запросах.</p>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="mb-4 text-base font-semibold text-ink-900">Рост пользователей (14 дней)</h2>
+          {data.userGrowth.length > 0 ? (
+            <div className="flex h-32 items-end gap-1">
+              {data.userGrowth.map((point) => {
+                const max = Math.max(...data.userGrowth.map((p) => p.count), 1);
+                return (
+                  <div key={point.date} className="group relative flex-1">
+                    <div
+                      className="w-full rounded-t bg-brand-500/80 transition-colors group-hover:bg-brand-600"
+                      style={{ height: `${Math.max(4, (point.count / max) * 100)}%` }}
+                      title={`${point.date}: ${point.count}`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-ink-500">Недостаточно данных.</p>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="mb-4 text-base font-semibold text-ink-900">Популярные карьерные роли</h2>
+          {data.popularRoles.length > 0 ? (
+            <ul className="space-y-2.5">
+              {data.popularRoles.slice(0, 6).map((item) => (
+                <li key={item.role} className="flex items-center justify-between text-sm">
+                  <span className="text-ink-700">{item.role}</span>
+                  <span className="font-semibold text-ink-900">Интересов: {item.count}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-ink-500">Карьерные роли пока не заведены.</p>
+          )}
+        </Card>
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
 from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -14,7 +15,7 @@ from apps.careers.services import CareerGPSService
 from apps.knowledge.services import KnowledgeSearchService
 from apps.knowledge.models import KnowledgeItem
 from apps.notifications.services import get_notification_service
-from apps.opportunities.models import Opportunity, SavedOpportunity
+from apps.opportunities.models import Opportunity, OpportunitySkill, SavedOpportunity
 from apps.opportunities.services import OpportunityMatchingService
 from apps.profiles.models import CareerGoal, StudentProfile
 from apps.subscriptions.models import Subscription
@@ -167,17 +168,28 @@ def _serialize_opportunity(item, user=None, match=None):
     is_saved = False
     if user and user.is_authenticated and getattr(user, 'role', None) == 'student':
         is_saved = SavedOpportunity.objects.filter(student=user, opportunity=item).exists()
+    skills = [
+        {
+            'name': link.skill,
+            'level': OPPORTUNITY_SKILL_LEVELS_REVERSE.get(link.required_level, 3),
+            'weight': link.weight,
+        }
+        for link in item.required_skills.all()
+    ]
     return {
         'id': str(item.id),
         'title': item.title,
         'company': audience.get('company', item.university),
         'description': item.description,
-        'type': 'job' if item.type == 'vacancy' else item.type,
+        'type': item.type,
         'location': audience.get('location', item.university),
         'remote': bool(audience.get('remote', False)),
         'requirements': requirements,
+        'skills': skills,
         'status': 'active' if item.published else 'inactive',
-        'deadline': item.deadline.isoformat() if item.deadline else item.updated_at.isoformat(),
+        'published': item.published,
+        'verifiedStatus': item.verified_status,
+        'deadline': item.deadline.isoformat() if item.deadline else None,
         'sourceUrl': item.source_url,
         'matchPercentage': match['score'] if match else 0,
         'matchReasons': match['reasons'] if match else [],
@@ -192,15 +204,20 @@ def _serialize_opportunity(item, user=None, match=None):
 
 
 def _serialize_role(role):
-    skills = [link.skill.name for link in role.required_skills.select_related('skill').all()]
+    skills = [
+        {'name': link.skill.name, 'level': link.required_level}
+        for link in role.required_skills.select_related('skill').all()
+    ]
     return {
         'id': str(role.id),
         'title': role.name,
         'description': role.description,
-        'skills': skills,
-        'avgSalary': 'Not specified',
-        'demandLevel': 'high' if role.active else 'low',
-        'educationPath': ['Build core skills', 'Complete relevant projects', 'Apply to matched opportunities'],
+        'skills': [item['name'] for item in skills],
+        'skillLevels': skills,
+        'avgSalary': role.avg_salary,
+        'demandLevel': role.demand_level,
+        'active': role.active,
+        'educationPath': role.education_path or [],
         'createdAt': role.created_at.isoformat(),
         'updatedAt': role.updated_at.isoformat(),
     }
@@ -233,6 +250,8 @@ def _serialize_knowledge(item):
         'title': item.title,
         'content': item.content,
         'category': item.responsible_unit or 'General',
+        'responsibleUnit': item.responsible_unit,
+        'audience': item.audience or [],
         'tags': item.audience or [],
         'summary': item.content[:220],
         'source': {
@@ -241,6 +260,8 @@ def _serialize_knowledge(item):
             'url': item.source_url,
             'type': 'web' if item.source_url else 'database',
         },
+        'sourceUrl': item.source_url,
+        'published': item.published,
         'verified': item.verified_status == 'verified',
         'verifiedStatus': item.verified_status,
         'actualUntil': item.actual_until.isoformat() if item.actual_until else None,
@@ -376,6 +397,15 @@ def _sync_student_skills(profile, specs):
             skill=skill,
             defaults={'level': spec['level'], 'evidence': 'Declared during onboarding/profile update'},
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def programs(request):
+    institute_id = request.query_params.get('instituteId')
+    if not institute_id:
+        return Response(DEMO_PROGRAMS)
+    return Response([item for item in DEMO_PROGRAMS if item['instituteId'] == institute_id])
 
 
 @api_view(['GET'])
@@ -537,9 +567,8 @@ def student_opportunities(request):
         )
 
     item_type = request.query_params.get('type')
-    if item_type:
-        db_type = 'vacancy' if item_type in ['job', 'full-time'] else item_type
-        items = items.filter(type=db_type)
+    if item_type and item_type in OPPORTUNITY_TYPES:
+        items = items.filter(type=item_type)
 
     min_match = int(request.query_params.get('minMatch') or 0)
     service = OpportunityMatchingService()
@@ -715,6 +744,66 @@ class NotificationCount:
         ).count()
 
 
+OPPORTUNITY_TYPES = {'internship', 'vacancy', 'project', 'hackathon', 'event', 'course'}
+VERIFIED_STATUSES = {'pending', 'verified', 'rejected'}
+OPPORTUNITY_SKILL_LEVELS = {1: 'beginner', 2: 'beginner', 3: 'intermediate', 4: 'advanced', 5: 'expert'}
+OPPORTUNITY_SKILL_LEVELS_REVERSE = {'beginner': 2, 'intermediate': 3, 'advanced': 4, 'expert': 5}
+
+
+def _parse_deadline(value):
+    if not value:
+        return None
+    parsed = parse_datetime(value)
+    if parsed is None:
+        parsed_date = parse_date(value)
+        if parsed_date is None:
+            return None
+        parsed = datetime.combine(parsed_date, datetime.min.time())
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
+    return parsed
+
+
+def _replace_opportunity_skills(item, skills):
+    item.required_skills.all().delete()
+    for spec in skills:
+        if isinstance(spec, str):
+            name, level = spec.strip(), 3
+        elif isinstance(spec, dict):
+            name = str(spec.get('name') or '').strip()
+            level = spec.get('level', 3)
+        else:
+            continue
+        if not name:
+            continue
+        try:
+            level = int(level)
+        except (TypeError, ValueError):
+            level = 3
+        level = min(max(level, 1), 5)
+        OpportunitySkill.objects.create(
+            opportunity=item,
+            skill=name[:200],
+            required_level=OPPORTUNITY_SKILL_LEVELS.get(level, 'intermediate'),
+            weight=1,
+        )
+
+
+def _resolve_published(data, fallback=False):
+    """`published` is the canonical field; `status: active/inactive` is kept
+    as a back-compat alias for older/contest API callers."""
+    if 'published' in data:
+        return bool(data.get('published'))
+    if 'status' in data:
+        return data.get('status') == 'active'
+    return fallback
+
+
+def _resolve_verified_status(data, fallback='verified'):
+    value = data.get('verifiedStatus')
+    return value if value in VERIFIED_STATUSES else fallback
+
+
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def admin_opportunities(request):
@@ -724,21 +813,25 @@ def admin_opportunities(request):
         return Response(_opportunity_list(request.user))
 
     data = request.data
+    opp_type = data.get('type', 'internship')
     item = Opportunity.objects.create(
         university=_university(request.user),
-        type='vacancy' if data.get('type') == 'job' else data.get('type', 'internship'),
+        type=opp_type if opp_type in OPPORTUNITY_TYPES else 'internship',
         title=data.get('title', ''),
         description=data.get('description', ''),
         requirements='\n'.join(data.get('requirements') or []),
         audience={
             'company': data.get('company', ''),
             'location': data.get('location', ''),
-            'remote': data.get('remote', False),
+            'remote': bool(data.get('remote', False)),
         },
-        verified_status='verified',
-        published=data.get('status', 'active') == 'active',
+        deadline=_parse_deadline(data.get('deadline')),
+        source_url=data.get('sourceUrl', ''),
+        verified_status=_resolve_verified_status(data),
+        published=_resolve_published(data, fallback=True),
         created_by=request.user,
     )
+    _replace_opportunity_skills(item, data.get('skills') or [])
     _audit(request.user, 'create', 'opportunity', item.id, item.title)
     if item.published and item.verified_status == 'verified':
         get_notification_service().create_for_opportunity_subscriptions(item)
@@ -761,17 +854,24 @@ def admin_opportunity_detail(request, pk):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     data = request.data
-    item.type = 'vacancy' if data.get('type') == 'job' else data.get('type', item.type)
+    opp_type = data.get('type', item.type)
+    item.type = opp_type if opp_type in OPPORTUNITY_TYPES else item.type
     item.title = data.get('title', item.title)
     item.description = data.get('description', item.description)
     item.requirements = '\n'.join(data.get('requirements') or [])
     item.audience = {
         'company': data.get('company', ''),
         'location': data.get('location', ''),
-        'remote': data.get('remote', False),
+        'remote': bool(data.get('remote', False)),
     }
-    item.published = data.get('status', 'active') == 'active'
+    if 'deadline' in data:
+        item.deadline = _parse_deadline(data.get('deadline'))
+    item.source_url = data.get('sourceUrl', item.source_url)
+    item.verified_status = _resolve_verified_status(data, item.verified_status)
+    item.published = _resolve_published(data, item.published)
     item.save()
+    if 'skills' in data:
+        _replace_opportunity_skills(item, data.get('skills') or [])
     _audit(request.user, 'update', 'opportunity', item.id, item.title)
     if item.published and item.verified_status == 'verified':
         get_notification_service().create_for_opportunity_subscriptions(item)
@@ -902,11 +1002,37 @@ def admin_career_roles(request):
     if request.method == 'GET':
         return Response(_career_role_list(request.user))
 
+DEMAND_LEVELS = {'high', 'medium', 'low'}
+
+
+def _demand_level(data, fallback='medium'):
+    value = data.get('demandLevel', fallback)
+    return value if value in DEMAND_LEVELS else fallback
+
+
+def _education_path(data, fallback=None):
+    value = data.get('educationPath', fallback)
+    if value is None:
+        return fallback or []
+    return [str(step).strip() for step in value if str(step).strip()]
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def admin_career_roles(request):
+    if not _is_manager(request.user):
+        return _forbidden()
+    if request.method == 'GET':
+        return Response(_career_role_list(request.user))
+
     role = CareerRole.objects.create(
         university=_university(request.user),
         name=request.data.get('title', ''),
         description=request.data.get('description', ''),
-        active=request.data.get('demandLevel', 'medium') != 'low',
+        avg_salary=request.data.get('avgSalary', ''),
+        demand_level=_demand_level(request.data),
+        education_path=_education_path(request.data),
+        active=request.data.get('active', True),
     )
     _replace_role_skills(role, request.data.get('skills') or [])
     _audit(request.user, 'create', 'career_role', role.id, role.name)
@@ -930,28 +1056,65 @@ def admin_career_role_detail(request, pk):
 
     role.name = request.data.get('title', role.name)
     role.description = request.data.get('description', role.description)
-    role.active = request.data.get('demandLevel', 'medium') != 'low'
+    role.avg_salary = request.data.get('avgSalary', role.avg_salary)
+    role.demand_level = _demand_level(request.data, role.demand_level)
+    role.education_path = _education_path(request.data, role.education_path)
+    role.active = request.data.get('active', role.active)
     role.save()
-    _replace_role_skills(role, request.data.get('skills') or [])
+    if 'skills' in request.data:
+        _replace_role_skills(role, request.data.get('skills') or [])
     _audit(request.user, 'update', 'career_role', role.id, role.name)
     return Response(_serialize_role(role))
 
 
-def _replace_role_skills(role, skill_names):
+def _replace_role_skills(role, skills):
     role.required_skills.all().delete()
-    for name in [name for name in skill_names if name]:
+    for spec in skills:
+        if isinstance(spec, str):
+            name, level = spec.strip(), 3
+        elif isinstance(spec, dict):
+            name = str(spec.get('name') or '').strip()
+            level = spec.get('level', 3)
+        else:
+            continue
+        if not name:
+            continue
+        try:
+            level = int(level)
+        except (TypeError, ValueError):
+            level = 3
+        level = min(max(level, 1), 5)
         skill, _ = Skill.objects.get_or_create(
             university=role.university,
             name=name,
             defaults={'category': 'technical'},
         )
-        CareerRoleSkill.objects.create(career_role=role, skill=skill, required_level=3, weight=1)
+        CareerRoleSkill.objects.create(career_role=role, skill=skill, required_level=level, weight=1)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def knowledge(request):
     return Response(_knowledge_list(request.user))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def knowledge_detail(request, pk):
+    try:
+        item = KnowledgeItem.objects.get(pk=pk, university=_university(request.user))
+    except KnowledgeItem.DoesNotExist:
+        return Response({'detail': 'Article not found.'}, status=status.HTTP_404_NOT_FOUND)
+    if not _is_manager(request.user) and not (item.published and item.verified_status == 'verified'):
+        return Response({'detail': 'Article not found.'}, status=status.HTTP_404_NOT_FOUND)
+    InteractionEvent.objects.create(
+        university=_university(request.user),
+        user=request.user,
+        event_type='knowledge_open',
+        entity_type='knowledge',
+        entity_id=str(item.id),
+    )
+    return Response(_serialize_knowledge(item))
 
 
 def _knowledge_list(user=None):
@@ -1004,15 +1167,45 @@ def admin_knowledge(request):
     if request.method == 'GET':
         return Response(_knowledge_list(request.user))
 
+KNOWLEDGE_VERIFIED_STATUSES = {'draft', 'verified', 'outdated'}
+
+
+def _knowledge_audience(data, fallback=None):
+    value = data.get('audience', data.get('tags', fallback))
+    if value is None:
+        return fallback or []
+    valid = set(KnowledgeItem.AUDIENCE_CHOICES)
+    return [item for item in value if item in valid] or [
+        item for item in value if isinstance(item, str) and item.strip()
+    ]
+
+
+def _parse_actual_until(value):
+    if not value:
+        return None
+    return parse_date(value)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def admin_knowledge(request):
+    if not _is_manager(request.user):
+        return _forbidden()
+    if request.method == 'GET':
+        return Response(_knowledge_list(request.user))
+
+    data = request.data
+    verified_status = data.get('verifiedStatus', 'draft')
     item = KnowledgeItem.objects.create(
         university=_university(request.user),
-        title=request.data.get('title', ''),
-        content=request.data.get('content', ''),
-        source_url=request.data.get('sourceUrl', ''),
-        responsible_unit=request.data.get('category', 'General'),
-        audience=request.data.get('tags') or [],
-        verified_status='verified',
-        published=True,
+        title=data.get('title', ''),
+        content=data.get('content', ''),
+        source_url=data.get('sourceUrl', ''),
+        responsible_unit=data.get('category', 'General'),
+        audience=_knowledge_audience(data),
+        verified_status=verified_status if verified_status in KNOWLEDGE_VERIFIED_STATUSES else 'draft',
+        published=bool(data.get('published', False)),
+        actual_until=_parse_actual_until(data.get('actualUntil')),
         created_by=request.user,
     )
     _audit(request.user, 'create', 'knowledge', item.id, item.title)
@@ -1034,11 +1227,17 @@ def admin_knowledge_detail(request, pk):
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    item.title = request.data.get('title', item.title)
-    item.content = request.data.get('content', item.content)
-    item.responsible_unit = request.data.get('category', item.responsible_unit)
-    item.audience = request.data.get('tags') or []
-    item.source_url = request.data.get('sourceUrl', item.source_url)
+    data = request.data
+    verified_status = data.get('verifiedStatus', item.verified_status)
+    item.title = data.get('title', item.title)
+    item.content = data.get('content', item.content)
+    item.responsible_unit = data.get('category', item.responsible_unit)
+    item.audience = _knowledge_audience(data, item.audience)
+    item.source_url = data.get('sourceUrl', item.source_url)
+    item.verified_status = verified_status if verified_status in KNOWLEDGE_VERIFIED_STATUSES else item.verified_status
+    item.published = bool(data.get('published', item.published))
+    if 'actualUntil' in data:
+        item.actual_until = _parse_actual_until(data.get('actualUntil'))
     item.save()
     _audit(request.user, 'update', 'knowledge', item.id, item.title)
     return Response(_serialize_knowledge(item))

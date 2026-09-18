@@ -12,30 +12,45 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
+function mockBrowseList() {
+  return { data: [] };
+}
+
 describe('Knowledge', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('renders verified source details from search results', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: {
-        query: 'практика',
-        total: 1,
-        results: [
-          {
-            id: '1',
-            title: 'Как оформить производственную практику',
-            content: 'Подайте заявление.',
-            summary: 'Подайте заявление.',
-            source: { id: '1', name: 'Учебный офис', url: 'https://demo.local/practice', type: 'web' },
-            verified: true,
-            relevanceScore: 1,
-            createdAt: '2026-09-09T00:00:00Z',
-            updatedAt: '2026-09-09T00:00:00Z',
+    vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
+      if (url === '/knowledge/search') {
+        return {
+          data: {
+            query: 'практика',
+            total: 1,
+            results: [
+              {
+                id: '1',
+                title: 'Как оформить производственную практику',
+                content: 'Подайте заявление.',
+                summary: 'Подайте заявление.',
+                category: 'Практика',
+                audience: [],
+                source: { id: '1', name: 'Учебный офис', url: 'https://demo.local/practice', type: 'web' },
+                sourceUrl: 'https://demo.local/practice',
+                published: true,
+                verified: true,
+                verifiedStatus: 'verified',
+                actualUntil: null,
+                relevanceScore: 1,
+                createdAt: '2026-09-09T00:00:00Z',
+                updatedAt: '2026-09-09T00:00:00Z',
+              },
+            ],
           },
-        ],
-      },
+        };
+      }
+      return mockBrowseList();
     });
 
     renderWithProviders(<Knowledge />);
@@ -46,15 +61,20 @@ describe('Knowledge', () => {
   });
 
   it('renders safe fallback when backend has no verified answer', async () => {
-    vi.mocked(apiClient.get).mockResolvedValueOnce({
-      data: {
-        found: false,
-        query: 'unknown',
-        total: 0,
-        results: [],
-        message: 'Не найден подтвержденный актуальный материал.',
-        escalation: { unit: 'Учебный офис', contact: 'helpdesk@demo.local' },
-      },
+    vi.mocked(apiClient.get).mockImplementation(async (url: string) => {
+      if (url === '/knowledge/search') {
+        return {
+          data: {
+            found: false,
+            query: 'unknown',
+            total: 0,
+            results: [],
+            message: 'Не найден подтвержденный актуальный материал.',
+            escalation: { unit: 'Учебный офис', contact: 'helpdesk@demo.local' },
+          },
+        };
+      }
+      return mockBrowseList();
     });
 
     renderWithProviders(<Knowledge />);

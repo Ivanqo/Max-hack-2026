@@ -4,14 +4,17 @@ import { useNavigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { useAuthStore } from './stores/authStore'
+import { ToastProvider } from './ui'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import Home from './pages/Home'
 import Onboarding from './pages/Onboarding'
 import Knowledge from './pages/Knowledge'
+import KnowledgeDetail from './pages/KnowledgeDetail'
 import CareerGPS from './pages/CareerGPS'
 import Opportunities from './pages/Opportunities'
+import OpportunityDetail from './pages/OpportunityDetail'
 import ProfilePage from './pages/ProfilePage'
 
 declare global {
@@ -84,26 +87,30 @@ function MaxLaunchBridge() {
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <MaxLaunchBridge />
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+      <ToastProvider>
+        <AuthProvider>
+          <MaxLaunchBridge />
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
 
             <Route element={<ProtectedRoute />}>
-              <Route element={<Layout />}>
-              <Route path="/" element={<Navigate to="/home" replace />} />
-              <Route path="/dashboard" element={<Navigate to="/home" replace />} />
-              <Route path="/home" element={<Home />} />
               <Route path="/onboarding" element={<Onboarding />} />
-              <Route path="/knowledge" element={<Knowledge />} />
-              <Route path="/career-gps" element={<CareerGPS />} />
-              <Route path="/opportunities" element={<Opportunities />} />
-              <Route path="/profile" element={<ProfilePage />} />
+              <Route element={<Layout />}>
+                <Route path="/" element={<Navigate to="/home" replace />} />
+                <Route path="/dashboard" element={<Navigate to="/home" replace />} />
+                <Route path="/home" element={<Home />} />
+                <Route path="/knowledge" element={<Knowledge />} />
+                <Route path="/knowledge/:id" element={<KnowledgeDetail />} />
+                <Route path="/career-gps" element={<CareerGPS />} />
+                <Route path="/opportunities" element={<Opportunities />} />
+                <Route path="/opportunities/:id" element={<OpportunityDetail />} />
+                <Route path="/profile" element={<ProfilePage />} />
+              </Route>
             </Route>
-          </Route>
-        </Routes>
-      </AuthProvider>
+          </Routes>
+        </AuthProvider>
+      </ToastProvider>
     </BrowserRouter>
   )
 }

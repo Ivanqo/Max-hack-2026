@@ -1,318 +1,150 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Search, CheckCircle, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
-import { apiClient } from '@/lib/api';
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { BookOpen, CheckCircle2, LifeBuoy, Search } from 'lucide-react'
+import { fetchKnowledgeList, searchKnowledge } from '@/lib/endpoints'
+import { Badge, Chip, EmptyState, ErrorState, LoadingState, Skeleton } from '@/ui'
+import type { KnowledgeItem } from '@/types'
 
-interface KnowledgeSource {
-  id: string;
-  name: string;
-  url?: string;
-  type: 'document' | 'web' | 'database';
-}
-
-interface KnowledgeItem {
-  id: string;
-  title: string;
-  content: string;
-  summary: string;
-  source: KnowledgeSource;
-  verified: boolean;
-  relevanceScore: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface SearchResponse {
-  results: KnowledgeItem[];
-  total: number;
-  query: string;
-  found?: boolean;
-  message?: string;
-  escalation?: {
-    unit: string;
-    contact: string;
-  };
-}
-
-const useDebounce = <T,>(value: T, delay: number): T => {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
+function useDebounced<T>(value: T, delay = 400): T {
+  const [debounced, setDebounced] = useState(value)
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
+    const handle = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(handle)
+  }, [value, delay])
+  return debounced
+}
 
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-};
-
-const searchKnowledge = async (query: string): Promise<SearchResponse> => {
-  if (!query.trim()) {
-    return { results: [], total: 0, query: '' };
-  }
-
-  const response = await apiClient.get(`/knowledge/search?q=${encodeURIComponent(query)}`);
-  return response.data;
-};
-
-export default function Knowledge() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedItem, setSelectedItem] = useState<KnowledgeItem | null>(null);
-  const debouncedQuery = useDebounce(searchQuery, 500);
-
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ['knowledge', debouncedQuery],
-    queryFn: () => searchKnowledge(debouncedQuery),
-    enabled: debouncedQuery.trim().length > 0,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  }, []);
-
-  const handleItemClick = useCallback((item: KnowledgeItem) => {
-    setSelectedItem(item);
-  }, []);
-
-  const handleCloseDetail = useCallback(() => {
-    setSelectedItem(null);
-  }, []);
-
-  const getSourceIcon = (type: KnowledgeSource['type']) => {
-    switch (type) {
-      case 'web':
-        return <ExternalLink className="w-4 h-4" />;
-      case 'document':
-        return <span className="text-sm">📄</span>;
-      case 'database':
-        return <span className="text-sm">🗄️</span>;
-      default:
-        return null;
-    }
-  };
-
+function KnowledgeCard({ item }: { item: KnowledgeItem }) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            База знаний
-          </h1>
-          <p className="text-gray-600">
-            Ищите проверенные материалы университета и надежные источники
-          </p>
-        </div>
-
-        {/* Search Bar */}
-        <div className="mb-8">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" aria-hidden="true" />
-            </div>
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
-              placeholder="Введите тему, понятие или вопрос..."
-              aria-label="Поиск по базе знаний"
-            />
-          </div>
-        </div>
-
-        {/* Loading State */}
-        {isLoading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 text-blue-500 animate-spin" aria-label="Загрузка" />
-            <span className="ml-3 text-gray-600">Ищем в базе знаний...</span>
-          </div>
-        )}
-
-        {/* Error State */}
-        {isError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 flex items-start">
-            <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Ошибка поиска</h3>
-              <p className="mt-1 text-sm text-red-700">
-                Не удалось выполнить поиск. Попробуйте еще раз.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Empty State - No Query */}
-        {!searchQuery.trim() && !isLoading && (
-          <div className="text-center py-12">
-            <Search className="mx-auto h-12 w-12 text-gray-400" aria-hidden="true" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">Начните поиск</h3>
-            <p className="mt-2 text-gray-500">
-              Введите запрос, чтобы найти подтвержденную информацию в базе знаний
-            </p>
-          </div>
-        )}
-
-        {/* Empty State - No Results */}
-        {debouncedQuery.trim() && !isLoading && !isError && data?.results.length === 0 && (
-          <div className="text-center py-12">
-            <AlertCircle className="mx-auto h-12 w-12 text-gray-400" aria-hidden="true" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">Ничего не найдено</h3>
-            <p className="mt-2 text-gray-500">
-              {data.message || `По запросу "${debouncedQuery}" ничего не найдено. Попробуйте другие слова или более общий запрос.`}
-            </p>
-            {data.escalation && (
-              <p className="mt-2 text-sm text-gray-500">
-                {data.escalation.unit}: {data.escalation.contact}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Results */}
-        {!isLoading && !isError && data && data.results.length > 0 && (
-          <>
-            <div className="mb-4 text-sm text-gray-600">
-              Найдено результатов: {data.total} по запросу &quot;{data.query}&quot;
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {data.results.map((item) => (
-                <article
-                  key={item.id}
-                  onClick={() => handleItemClick(item)}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  tabIndex={0}
-                  role="button"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleItemClick(item);
-                    }
-                  }}
-                >
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900 flex-1 line-clamp-2">
-                      {item.title}
-                    </h3>
-                    {item.verified && (
-                      <CheckCircle
-                        className="w-5 h-5 text-green-500 flex-shrink-0 ml-2"
-                        aria-label="Проверено"
-                      />
-                    )}
-                  </div>
-
-                  {/* Summary */}
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-3">
-                    {item.summary}
-                  </p>
-
-                  {/* Footer */}
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <div className="flex items-center space-x-1">
-                      {getSourceIcon(item.source.type)}
-                      <span className="truncate max-w-[150px]">{item.source.name}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                        {Math.round(item.relevanceScore * 100)}% совпадение
-                      </span>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* Detail Modal */}
-        {selectedItem && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-            onClick={handleCloseDetail}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="detail-title"
-          >
-            <div
-              className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h2 id="detail-title" className="text-2xl font-bold text-gray-900 mb-2">
-                      {selectedItem.title}
-                    </h2>
-                    <div className="flex items-center space-x-3 text-sm text-gray-600">
-                      <div className="flex items-center space-x-1">
-                        {getSourceIcon(selectedItem.source.type)}
-                        <span>{selectedItem.source.name}</span>
-                      </div>
-                      {selectedItem.verified && (
-                        <div className="flex items-center space-x-1 text-green-600">
-                          <CheckCircle className="w-4 h-4" />
-                          <span>Проверено</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleCloseDetail}
-                    className="text-gray-400 hover:text-gray-600 transition-colors ml-4"
-                    aria-label="Закрыть подробности"
-                  >
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Content */}
-                <div className="prose prose-sm max-w-none">
-                  <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-                    <p className="text-sm text-blue-900">{selectedItem.summary}</p>
-                  </div>
-                  <div className="text-gray-700 whitespace-pre-wrap">
-                    {selectedItem.content}
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div className="mt-6 pt-6 border-t border-gray-200 flex items-center justify-between">
-                  <div className="text-sm text-gray-500">
-                    Обновлено: {new Date(selectedItem.updatedAt).toLocaleDateString('ru-RU')}
-                  </div>
-                  {selectedItem.source.url && (
-                    <a
-                      href={selectedItem.source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
-                    >
-                      <span>Открыть источник</span>
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+    <Link
+      to={`/knowledge/${item.id}`}
+      className="flex flex-col rounded-2xl border border-ink-100 bg-white p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-card"
+    >
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <Badge tone="brand">{item.category}</Badge>
+        {item.verified && <CheckCircle2 className="h-4.5 w-4.5 shrink-0 text-accent-600" style={{ height: 18, width: 18 }} aria-label="Проверено" />}
+      </div>
+      <h3 className="line-clamp-2 text-sm font-semibold text-ink-900">{item.title}</h3>
+      <p className="mt-1.5 line-clamp-3 flex-1 text-sm text-ink-500">{item.summary}</p>
+      <div className="mt-3 flex items-center justify-between text-xs text-ink-400">
+        <span className="truncate">{item.source.name}</span>
+        {typeof item.relevanceScore === 'number' && (
+          <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 font-medium text-brand-700">
+            {Math.round(item.relevanceScore * 100)}%
+          </span>
         )}
       </div>
+    </Link>
+  )
+}
+
+export default function Knowledge() {
+  const [query, setQuery] = useState('')
+  const [category, setCategory] = useState<string | null>(null)
+  const debouncedQuery = useDebounced(query)
+  const isSearching = debouncedQuery.trim().length > 0
+
+  const searchQuery = useQuery({
+    queryKey: ['knowledge-search', debouncedQuery],
+    queryFn: () => searchKnowledge(debouncedQuery),
+    enabled: isSearching,
+  })
+
+  const browseQuery = useQuery({
+    queryKey: ['knowledge-list'],
+    queryFn: fetchKnowledgeList,
+    enabled: !isSearching,
+  })
+
+  const categories = useMemo(() => {
+    const set = new Set((browseQuery.data || []).map((item) => item.category))
+    return Array.from(set)
+  }, [browseQuery.data])
+
+  const filteredBrowse = useMemo(() => {
+    if (!browseQuery.data) return []
+    return category ? browseQuery.data.filter((item) => item.category === category) : browseQuery.data
+  }, [browseQuery.data, category])
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-ink-900">База знаний</h1>
+        <p className="mt-1 text-sm text-ink-500">Проверенные ответы университета — с источником и датой актуальности.</p>
+      </div>
+
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-ink-400" style={{ height: 18, width: 18 }} />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Например: «как оформить практику»"
+          className="w-full rounded-xl border border-ink-200 bg-white py-3 pl-10 pr-4 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+          aria-label="Поиск по базе знаний"
+        />
+      </div>
+
+      {!isSearching && categories.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <Chip selected={category === null} onClick={() => setCategory(null)}>Все темы</Chip>
+          {categories.map((cat) => (
+            <Chip key={cat} selected={category === cat} onClick={() => setCategory(category === cat ? null : cat)}>
+              {cat}
+            </Chip>
+          ))}
+        </div>
+      )}
+
+      {isSearching ? (
+        <div>
+          {searchQuery.isLoading && <LoadingState label="Ищем в базе знаний…" />}
+          {searchQuery.isError && <ErrorState onRetry={() => searchQuery.refetch()} />}
+          {searchQuery.data && searchQuery.data.results.length === 0 && (
+            <EmptyState
+              icon={<LifeBuoy className="h-6 w-6 text-ink-400" />}
+              title="Подтверждённого ответа пока нет"
+              message={searchQuery.data.message || `По запросу «${debouncedQuery}» ничего не найдено. Попробуйте переформулировать вопрос.`}
+              action={
+                searchQuery.data.escalation && (
+                  <div className="rounded-xl bg-ink-50 px-4 py-2 text-sm text-ink-600">
+                    Обратитесь: {searchQuery.data.escalation.unit} · {searchQuery.data.escalation.contact}
+                  </div>
+                )
+              }
+            />
+          )}
+          {searchQuery.data && searchQuery.data.results.length > 0 && (
+            <>
+              <p className="mb-3 text-sm text-ink-500">Найдено: {searchQuery.data.total}</p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {searchQuery.data.results.map((item) => (
+                  <KnowledgeCard key={item.id} item={item} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        <div>
+          {browseQuery.isLoading && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-40" />)}
+            </div>
+          )}
+          {browseQuery.isError && <ErrorState onRetry={() => browseQuery.refetch()} />}
+          {browseQuery.data && filteredBrowse.length === 0 && (
+            <EmptyState icon={<BookOpen className="h-6 w-6 text-ink-400" />} title="Материалов пока нет" message="Университет ещё не опубликовал материалы в этой категории." />
+          )}
+          {filteredBrowse.length > 0 && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {filteredBrowse.map((item) => (
+                <KnowledgeCard key={item.id} item={item} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
-  );
+  )
 }

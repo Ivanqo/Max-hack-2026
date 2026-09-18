@@ -1,86 +1,73 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { LogIn, Sparkles } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { Button, Input } from '@/ui'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
     try {
       await login(email, password)
-      navigate('/dashboard')
-    } catch (err: any) {
+      navigate('/home')
+    } catch {
       setError('Не удалось войти. Проверьте почту и пароль.')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Войдите в аккаунт
-          </h2>
+    <div className="flex min-h-screen items-center justify-center bg-brand-gradient-soft px-4 py-12">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-gradient text-white shadow-pop">
+            <Sparkles className="h-6 w-6" />
+          </span>
+          <h1 className="text-2xl font-bold text-ink-900">UniPath MAX</h1>
+          <p className="mt-1 text-sm text-ink-500">Ваш карьерный навигатор в университете</p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+
+        <form className="space-y-4 rounded-3xl bg-white p-6 shadow-card sm:p-7" onSubmit={handleSubmit}>
           {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <p className="text-sm text-red-800">{error}</p>
+            <div className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700" role="alert">
+              {error}
             </div>
           )}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email" className="sr-only">
-                Электронная почта
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Электронная почта"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Пароль
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Пароль"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Войти
-            </button>
-          </div>
-
-          <div className="text-center">
-            <Link to="/register" className="text-sm text-indigo-600 hover:text-indigo-500">
-              Нет аккаунта? Зарегистрироваться
-            </Link>
-          </div>
+          <Input
+            label="Электронная почта"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="student@demo.local"
+          />
+          <Input
+            label="Пароль"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+          />
+          <Button type="submit" fullWidth loading={loading} leftIcon={<LogIn className="h-4 w-4" />}>
+            Войти
+          </Button>
+          <p className="text-center text-sm text-ink-500">
+            Нет аккаунта?{' '}
+            <Link to="/register" className="font-medium text-brand-600 hover:text-brand-700">Зарегистрироваться</Link>
+          </p>
         </form>
       </div>
     </div>

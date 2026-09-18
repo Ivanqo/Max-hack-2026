@@ -1,397 +1,240 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bookmark, BookmarkCheck, TrendingUp, AlertCircle, Loader2, BellPlus } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
-import { apiClient } from '@/lib/api';
+import { useEffect, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Bell, Bookmark, BookmarkCheck, Calendar, Search, SlidersHorizontal, X } from 'lucide-react'
+import { createSubscription, fetchOpportunities, saveOpportunity, unsaveOpportunity } from '@/lib/endpoints'
+import { opportunityTypeOptions, opportunityTypeLabels, daysUntil, matchTone } from '@/lib/labels'
+import { Badge, Button, Card, Chip, EmptyState, ErrorState, Input, LoadingState, Sheet, useToast } from '@/ui'
+import type { Opportunity } from '@/types'
 
-interface Opportunity {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  type: string;
-  description: string;
-  requirements: string[];
-  matchPercentage: number;
-  matchReasons: string[];
-  gaps: string[];
-  isSaved: boolean;
-  postedDate: string;
+const matchBg: Record<string, string> = {
+  success: 'bg-accent-50',
+  brand: 'bg-brand-50',
+  warning: 'bg-amber-50',
+  danger: 'bg-rose-50',
 }
 
-interface OpportunitiesResponse {
-  opportunities: Opportunity[];
-  total: number;
+function useDebounced<T>(value: T, delay = 400): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const handle = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(handle)
+  }, [value, delay])
+  return debounced
 }
 
-// API functions
-const fetchOpportunities = async (filters?: { type?: string; minMatch?: number }): Promise<OpportunitiesResponse> => {
-  const params = new URLSearchParams();
-  if (filters?.type) params.append('type', filters.type);
-  if (filters?.minMatch) params.append('minMatch', filters.minMatch.toString());
+function DeadlineBadge({ deadline }: { deadline: string | null }) {
+  if (!deadline) return null
+  const days = daysUntil(deadline)
+  if (days === null) return null
+  const tone = days <= 3 ? 'danger' : days <= 10 ? 'warning' : 'neutral'
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-ink-500">
+      <Calendar className="h-3.5 w-3.5" />
+      {days >= 0 ? (
+        <Badge tone={tone} size="sm">{days === 0 ? 'Дедлайн сегодня' : `${days} дн. до дедлайна`}</Badge>
+      ) : (
+        <Badge tone="neutral" size="sm">Дедлайн прошёл</Badge>
+      )}
+    </span>
+  )
+}
 
-  const response = await apiClient.get(`/student/opportunities?${params.toString()}`);
-  const opportunities = response.data;
-  return { opportunities, total: opportunities.length };
-};
-
-const saveOpportunity = async (opportunityId: string): Promise<void> => {
-  await apiClient.post(`/student/opportunities/${opportunityId}/save`);
-};
-
-const unsaveOpportunity = async (opportunityId: string): Promise<void> => {
-  await apiClient.delete(`/student/opportunities/${opportunityId}/save`);
-};
-
-const createSubscription = async (topic: string): Promise<void> => {
-  await apiClient.post('/student/subscriptions', { topic, filters: { topic }, active: true });
-};
-
-const opportunityTypeLabels: Record<string, string> = {
-  internship: 'Стажировка',
-  job: 'Вакансия',
-  vacancy: 'Вакансия',
-  project: 'Проект',
-  hackathon: 'Хакатон',
-  event: 'Событие',
-  course: 'Курс',
-  'full-time': 'Полная занятость',
-  'part-time': 'Частичная занятость',
-  contract: 'Контракт',
-};
+function OpportunityCard({ opportunity, onToggleSave, saving }: { opportunity: Opportunity; onToggleSave: (o: Opportunity) => void; saving: boolean }) {
+  return (
+    <Card interactive padding="none" className="overflow-hidden">
+      <Link to={`/opportunities/${opportunity.id}`} className="block p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <Badge tone="brand">{opportunityTypeLabels[opportunity.type] || opportunity.type}</Badge>
+              <DeadlineBadge deadline={opportunity.deadline} />
+            </div>
+            <h3 className="truncate text-base font-semibold text-ink-900">{opportunity.title}</h3>
+            <p className="mt-0.5 truncate text-sm text-ink-500">
+              {opportunity.company} {opportunity.location && `· ${opportunity.location}`} {opportunity.remote && '· удалённо'}
+            </p>
+          </div>
+          <div className={`shrink-0 rounded-xl px-3 py-2 text-center ${matchBg[matchTone(opportunity.matchPercentage)]}`}>
+            <div className="text-lg font-bold text-ink-900">{opportunity.matchPercentage}%</div>
+            <div className="text-[10px] font-medium uppercase tracking-wide text-ink-400">совпадение</div>
+          </div>
+        </div>
+        {opportunity.matchReasons.length > 0 && (
+          <p className="mt-3 truncate text-xs text-accent-700">✓ {opportunity.matchReasons[0]}</p>
+        )}
+      </Link>
+      <div className="flex items-center justify-between border-t border-ink-100 px-5 py-2.5">
+        <Link to={`/opportunities/${opportunity.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-700">
+          Подробнее
+        </Link>
+        <button
+          onClick={(e) => {
+            e.preventDefault()
+            onToggleSave(opportunity)
+          }}
+          disabled={saving}
+          className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-ink-100 hover:text-brand-600 disabled:opacity-50"
+          aria-label={opportunity.isSaved ? 'Убрать из сохранённого' : 'Сохранить'}
+        >
+          {opportunity.isSaved ? <BookmarkCheck className="h-5 w-5 text-brand-600" /> : <Bookmark className="h-5 w-5" />}
+        </button>
+      </div>
+    </Card>
+  )
+}
 
 export default function Opportunities() {
-  const [filters, setFilters] = useState<{ type?: string; minMatch?: number }>({});
-  const [subscriptionTopic, setSubscriptionTopic] = useState('Бэкенд');
-  const [searchParams] = useSearchParams();
-  const highlightedOpportunityId = searchParams.get('opportunity');
-  const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const toast = useToast()
+  const queryClient = useQueryClient()
 
-  const { data, isLoading, error } = useQuery({
+  useEffect(() => {
+    const highlighted = searchParams.get('opportunity')
+    if (highlighted) navigate(`/opportunities/${highlighted}`, { replace: true })
+  }, [searchParams, navigate])
+
+  const [search, setSearch] = useState('')
+  const [type, setType] = useState<string | undefined>()
+  const [minMatch, setMinMatch] = useState<number | undefined>()
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [subscribeOpen, setSubscribeOpen] = useState(false)
+  const [topic, setTopic] = useState('Backend')
+  const debouncedSearch = useDebounced(search)
+
+  const filters = useMemo(() => ({ search: debouncedSearch, type, minMatch }), [debouncedSearch, type, minMatch])
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['opportunities', filters],
     queryFn: () => fetchOpportunities(filters),
-  });
+  })
 
   const saveMutation = useMutation({
-    mutationFn: saveOpportunity,
-    onSuccess: (_, opportunityId) => {
-      queryClient.setQueryData<OpportunitiesResponse>(
-        ['opportunities', filters],
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            opportunities: old.opportunities.map((opp) =>
-              opp.id === opportunityId ? { ...opp, isSaved: true } : opp
-            ),
-          };
-        }
-      );
+    mutationFn: (o: Opportunity) => (o.isSaved ? unsaveOpportunity(o.id) : saveOpportunity(o.id)),
+    onMutate: async (o) => {
+      await queryClient.cancelQueries({ queryKey: ['opportunities', filters] })
+      queryClient.setQueryData<Opportunity[]>(['opportunities', filters], (old) =>
+        old?.map((item) => (item.id === o.id ? { ...item, isSaved: !item.isSaved } : item)),
+      )
     },
-  });
+    onError: () => toast.error('Не удалось сохранить возможность', 'Попробуйте ещё раз.'),
+    onSuccess: (_, o) => toast.success(o.isSaved ? 'Убрано из сохранённого' : 'Сохранено'),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunities'] }),
+  })
 
-  const unsaveMutation = useMutation({
-    mutationFn: unsaveOpportunity,
-    onSuccess: (_, opportunityId) => {
-      queryClient.setQueryData<OpportunitiesResponse>(
-        ['opportunities', filters],
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            opportunities: old.opportunities.map((opp) =>
-              opp.id === opportunityId ? { ...opp, isSaved: false } : opp
-            ),
-          };
-        }
-      );
-    },
-  });
-
-  const subscriptionMutation = useMutation({
-    mutationFn: createSubscription,
+  const subscribeMutation = useMutation({
+    mutationFn: (value: string) => createSubscription(value),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['student-profile'] });
+      toast.success('Подписка создана', 'Мы пришлём уведомление в MAX, когда появится что-то подходящее.')
+      setSubscribeOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] })
     },
-  });
+    onError: () => toast.error('Не удалось создать подписку'),
+  })
 
-  const handleToggleSave = (opportunity: Opportunity) => {
-    if (opportunity.isSaved) {
-      unsaveMutation.mutate(opportunity.id);
-    } else {
-      saveMutation.mutate(opportunity.id);
-    }
-  };
-
-  const getMatchColor = (percentage: number): string => {
-    if (percentage >= 80) return 'text-green-600 bg-green-50';
-    if (percentage >= 60) return 'text-blue-600 bg-blue-50';
-    if (percentage >= 40) return 'text-yellow-600 bg-yellow-50';
-    return 'text-red-600 bg-red-50';
-  };
-
-  const getMatchBorderColor = (percentage: number): string => {
-    if (percentage >= 80) return 'border-green-200 hover:border-green-300';
-    if (percentage >= 60) return 'border-blue-200 hover:border-blue-300';
-    if (percentage >= 40) return 'border-yellow-200 hover:border-yellow-300';
-    return 'border-red-200 hover:border-red-300';
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 text-lg">Загружаем возможности...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Не удалось загрузить возможности</h2>
-          <p className="text-gray-600 mb-6">
-            Проверьте подключение и попробуйте еще раз.
-          </p>
-          <button
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['opportunities'] })}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Повторить
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!data || data.opportunities.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
-          <TrendingUp className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Возможности не найдены</h2>
-          <p className="text-gray-600 mb-6">
-            {filters.type || filters.minMatch
-              ? 'Попробуйте изменить фильтры, чтобы увидеть больше результатов.'
-              : 'Загляните позже: новые возможности появятся после публикации администратором.'}
-          </p>
-          {(filters.type || filters.minMatch) && (
-            <button
-              onClick={() => setFilters({})}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Сбросить фильтры
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
+  const activeFilterCount = (type ? 1 : 0) + (minMatch ? 1 : 0)
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Возможности для вас</h1>
-          <p className="text-gray-600">
-            Найдено возможностей по вашему профилю: {data.total}
-          </p>
+    <div className="space-y-5 animate-fade-in">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold tracking-tight text-ink-900">Возможности для вас</h1>
+        <p className="text-sm text-ink-500">Стажировки, проекты и хакатоны, отсортированные по совпадению с вашим профилем.</p>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-ink-400" style={{ height: 18, width: 18 }} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Искать по названию, навыкам…"
+            className="w-full rounded-xl border border-ink-200 bg-white py-2.5 pl-10 pr-4 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
+            aria-label="Искать возможности"
+          />
         </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <label htmlFor="subscription-topic" className="block text-sm font-medium text-gray-700 mb-1">
-                Тема подписки MAX
-              </label>
-              <input
-                id="subscription-topic"
-                value={subscriptionTopic}
-                onChange={(event) => setSubscriptionTopic(event.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <button
-              onClick={() => subscriptionMutation.mutate(subscriptionTopic)}
-              disabled={subscriptionMutation.isPending || !subscriptionTopic.trim()}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-            >
-              <BellPlus className="h-4 w-4" />
-              {subscriptionMutation.isPending ? 'Создаем...' : 'Создать подписку'}
-            </button>
-          </div>
-          {subscriptionMutation.isSuccess && (
-            <p className="mt-3 text-sm text-green-700">Подписка сохранена. Новые подходящие публикации создадут уведомление MAX.</p>
-          )}
-          {subscriptionMutation.error && (
-            <p className="mt-3 text-sm text-red-700">
-              Не удалось создать подписку. Попробуйте еще раз.
-            </p>
-          )}
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex flex-wrap gap-4">
-          <div className="flex-1 min-w-[200px]">
-            <label htmlFor="type-filter" className="block text-sm font-medium text-gray-700 mb-1">
-              Тип
-            </label>
-            <select
-              id="type-filter"
-              value={filters.type || ''}
-              onChange={(e) => setFilters({ ...filters, type: e.target.value || undefined })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Все типы</option>
-              <option value="internship">Стажировка</option>
-              <option value="full-time">Полная занятость</option>
-              <option value="part-time">Частичная занятость</option>
-              <option value="contract">Контракт</option>
-            </select>
-          </div>
-
-          <div className="flex-1 min-w-[200px]">
-            <label htmlFor="match-filter" className="block text-sm font-medium text-gray-700 mb-1">
-              Минимальное совпадение
-            </label>
-            <select
-              id="match-filter"
-              value={filters.minMatch || ''}
-              onChange={(e) =>
-                setFilters({ ...filters, minMatch: e.target.value ? Number(e.target.value) : undefined })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Любое совпадение</option>
-              <option value="40">40% и выше</option>
-              <option value="60">60% и выше</option>
-              <option value="80">80% и выше</option>
-            </select>
-          </div>
-
-          {(filters.type || filters.minMatch) && (
-            <div className="flex items-end">
-              <button
-                onClick={() => setFilters({})}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 underline"
-              >
-                Сбросить фильтры
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Opportunities List */}
-        <div className="space-y-4">
-          {data.opportunities.map((opportunity) => (
-            <article
-              key={opportunity.id}
-              className={`bg-white rounded-lg shadow-sm border-2 transition-all ${
-                highlightedOpportunityId === opportunity.id ? 'ring-4 ring-indigo-200' : ''
-              } ${getMatchBorderColor(
-                opportunity.matchPercentage
-              )}`}
-            >
-              <div className="p-6">
-                <div className="flex items-start justify-between gap-4 mb-4">
-                  <div className="flex-1">
-                    <h2 className="text-xl font-bold text-gray-900 mb-1">{opportunity.title}</h2>
-                    <p className="text-gray-600 mb-2">
-                      {opportunity.company} • {opportunity.location} • {opportunityTypeLabels[opportunity.type] || opportunity.type}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Опубликовано {new Date(opportunity.postedDate).toLocaleDateString('ru-RU')}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`text-center px-4 py-2 rounded-lg ${getMatchColor(opportunity.matchPercentage)}`}
-                    >
-                      <div className="text-2xl font-bold">{opportunity.matchPercentage}%</div>
-                      <div className="text-xs font-medium">Совпадение</div>
-                    </div>
-
-                    <button
-                      onClick={() => handleToggleSave(opportunity)}
-                      disabled={saveMutation.isPending || unsaveMutation.isPending}
-                      className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
-                      aria-label={opportunity.isSaved ? 'Убрать из сохраненного' : 'Сохранить возможность'}
-                    >
-                      {opportunity.isSaved ? (
-                        <BookmarkCheck className="w-6 h-6 text-blue-600" />
-                      ) : (
-                        <Bookmark className="w-6 h-6 text-gray-400" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <p className="text-gray-700 mb-4">{opportunity.description}</p>
-
-                {/* Match Reasons */}
-                {opportunity.matchReasons.length > 0 && (
-                  <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Почему подходит:</h3>
-                    <ul className="space-y-1">
-                      {opportunity.matchReasons.map((reason, index) => (
-                        <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
-                          <span className="text-green-500 mt-0.5">✓</span>
-                          <span>{reason}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Gaps */}
-                {opportunity.gaps.length > 0 && (
-                  <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Чего не хватает:</h3>
-                    <ul className="space-y-1">
-                      {opportunity.gaps.map((gap, index) => (
-                        <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
-                          <span className="text-yellow-500 mt-0.5">⚠</span>
-                          <span>{gap}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Requirements */}
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900 mb-2">Требования:</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {opportunity.requirements.map((req, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full"
-                      >
-                        {req}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-gray-200 flex gap-3">
-                  <button className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">
-                    Откликнуться
-                  </button>
-                  <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                    Подробнее
-                  </button>
-                </div>
-              </div>
-            </article>
-          ))}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setFiltersOpen(true)} leftIcon={<SlidersHorizontal className="h-4 w-4" />}>
+            Фильтры{activeFilterCount > 0 && ` (${activeFilterCount})`}
+          </Button>
+          <Button variant="secondary" onClick={() => setSubscribeOpen(true)} leftIcon={<Bell className="h-4 w-4" />}>
+            Подписаться
+          </Button>
         </div>
       </div>
+
+      {activeFilterCount > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {type && (
+            <Chip selected onClick={() => setType(undefined)}>
+              {opportunityTypeLabels[type as keyof typeof opportunityTypeLabels]} <X className="ml-1 h-3.5 w-3.5" />
+            </Chip>
+          )}
+          {minMatch && (
+            <Chip selected onClick={() => setMinMatch(undefined)}>
+              от {minMatch}% <X className="ml-1 h-3.5 w-3.5" />
+            </Chip>
+          )}
+        </div>
+      )}
+
+      {isLoading && <LoadingState label="Подбираем возможности…" />}
+      {isError && <ErrorState onRetry={() => refetch()} />}
+      {!isLoading && !isError && (!data || data.length === 0) && (
+        <EmptyState
+          title={search || activeFilterCount > 0 ? 'Ничего не найдено' : 'Пока нет доступных возможностей'}
+          message={search || activeFilterCount > 0 ? 'Попробуйте изменить запрос или сбросить фильтры.' : 'Загляните позже — университет публикует новые возможности регулярно.'}
+          action={
+            (search || activeFilterCount > 0) && (
+              <Button size="sm" variant="outline" onClick={() => { setSearch(''); setType(undefined); setMinMatch(undefined) }}>
+                Сбросить фильтры
+              </Button>
+            )
+          }
+        />
+      )}
+      {!isLoading && !isError && data && data.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {data.map((opportunity) => (
+            <OpportunityCard key={opportunity.id} opportunity={opportunity} onToggleSave={(o) => saveMutation.mutate(o)} saving={saveMutation.isPending} />
+          ))}
+        </div>
+      )}
+
+      <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Фильтры">
+        <div className="space-y-5">
+          <div>
+            <p className="mb-2 text-sm font-medium text-ink-800">Тип</p>
+            <div className="flex flex-wrap gap-2">
+              {opportunityTypeOptions.map((opt) => (
+                <Chip key={opt.value} selected={type === opt.value} onClick={() => setType(type === opt.value ? undefined : opt.value)}>
+                  {opt.label}
+                </Chip>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-sm font-medium text-ink-800">Минимальное совпадение</p>
+            <div className="flex flex-wrap gap-2">
+              {[40, 60, 80].map((value) => (
+                <Chip key={value} selected={minMatch === value} onClick={() => setMinMatch(minMatch === value ? undefined : value)}>
+                  от {value}%
+                </Chip>
+              ))}
+            </div>
+          </div>
+          <Button fullWidth onClick={() => setFiltersOpen(false)}>Показать результаты</Button>
+        </div>
+      </Sheet>
+
+      <Sheet open={subscribeOpen} onClose={() => setSubscribeOpen(false)} title="Подписаться на тему">
+        <div className="space-y-4">
+          <p className="text-sm text-ink-500">Мы пришлём уведомление в MAX, как только появится подходящая новая возможность.</p>
+          <Input label="Тема" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Например, Backend" />
+          <Button fullWidth loading={subscribeMutation.isPending} disabled={!topic.trim()} onClick={() => subscribeMutation.mutate(topic)}>
+            Создать подписку
+          </Button>
+        </div>
+      </Sheet>
     </div>
-  );
+  )
 }

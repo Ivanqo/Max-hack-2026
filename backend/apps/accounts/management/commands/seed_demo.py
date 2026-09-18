@@ -75,7 +75,12 @@ class Command(BaseCommand):
                 'role': role,
                 'university': university,
                 'is_staff': staff,
-                'is_superuser': role == 'admin',
+                # `role='admin'` is a tenant-scoped university admin, not a
+                # Django platform superuser. `is_superuser` bypasses
+                # university filtering across the codebase (see
+                # config/mvp_views.py, apps/*/permissions.py), so granting it
+                # here would let a demo admin read/write every tenant's data.
+                'is_superuser': False,
                 'is_active': True,
             },
         )

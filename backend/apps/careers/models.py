@@ -49,10 +49,31 @@ class CareerRole(models.Model):
     """
     A career role/position available at a university.
     """
+    DEMAND_LEVEL_CHOICES = [
+        ('high', 'High'),
+        ('medium', 'Medium'),
+        ('low', 'Low'),
+    ]
+
     university = models.CharField(max_length=255)
     name = models.CharField(max_length=200)
     description = models.TextField()
     active = models.BooleanField(default=True)
+    avg_salary = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text='Free-text salary range shown to students, e.g. "120 000 - 180 000 ₽"',
+    )
+    demand_level = models.CharField(
+        max_length=10,
+        choices=DEMAND_LEVEL_CHOICES,
+        default='medium',
+    )
+    education_path = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Ordered list of steps students can take toward this role',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
