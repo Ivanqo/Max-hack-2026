@@ -15,11 +15,11 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/knowledge', icon: BookOpen, label: 'Knowledge Base' },
-  { path: '/opportunities', icon: Briefcase, label: 'Opportunities' },
-  { path: '/career-roles', icon: Users, label: 'Career Roles' },
-  { path: '/analytics', icon: BarChart3, label: 'Analytics' },
+  { path: '/', icon: LayoutDashboard, label: 'Панель' },
+  { path: '/knowledge', icon: BookOpen, label: 'База знаний' },
+  { path: '/opportunities', icon: Briefcase, label: 'Возможности' },
+  { path: '/career-roles', icon: Users, label: 'Карьерные роли' },
+  { path: '/analytics', icon: BarChart3, label: 'Аналитика' },
 ];
 
 export const Layout = ({ children }: LayoutProps) => {
@@ -37,7 +37,7 @@ export const Layout = ({ children }: LayoutProps) => {
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
         <div className="p-6 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
+          <h1 className="text-xl font-bold text-gray-900">Панель администратора</h1>
           <p className="text-sm text-gray-600 mt-1">{user?.email}</p>
         </div>
 
@@ -68,7 +68,7 @@ export const Layout = ({ children }: LayoutProps) => {
             className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
           >
             <LogOut size={20} />
-            <span className="font-medium">Logout</span>
+            <span className="font-medium">Выйти</span>
           </button>
         </div>
       </aside>

@@ -107,10 +107,10 @@ export default function Knowledge() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Knowledge Base
+            База знаний
           </h1>
           <p className="text-gray-600">
-            Search through verified educational resources and materials
+            Ищите проверенные материалы университета и надежные источники
           </p>
         </div>
 
@@ -125,8 +125,8 @@ export default function Knowledge() {
               value={searchQuery}
               onChange={handleSearchChange}
               className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
-              placeholder="Search for topics, concepts, or questions..."
-              aria-label="Search knowledge base"
+              placeholder="Введите тему, понятие или вопрос..."
+              aria-label="Поиск по базе знаний"
             />
           </div>
         </div>
@@ -134,8 +134,8 @@ export default function Knowledge() {
         {/* Loading State */}
         {isLoading && (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 text-blue-500 animate-spin" aria-label="Loading" />
-            <span className="ml-3 text-gray-600">Searching knowledge base...</span>
+            <Loader2 className="w-8 h-8 text-blue-500 animate-spin" aria-label="Загрузка" />
+            <span className="ml-3 text-gray-600">Ищем в базе знаний...</span>
           </div>
         )}
 
@@ -144,9 +144,9 @@ export default function Knowledge() {
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 flex items-start">
             <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Search Error</h3>
+              <h3 className="text-sm font-medium text-red-800">Ошибка поиска</h3>
               <p className="mt-1 text-sm text-red-700">
-                {error instanceof Error ? error.message : 'Failed to search knowledge base. Please try again.'}
+                Не удалось выполнить поиск. Попробуйте еще раз.
               </p>
             </div>
           </div>
@@ -156,9 +156,9 @@ export default function Knowledge() {
         {!searchQuery.trim() && !isLoading && (
           <div className="text-center py-12">
             <Search className="mx-auto h-12 w-12 text-gray-400" aria-hidden="true" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">Start Searching</h3>
+            <h3 className="mt-4 text-lg font-medium text-gray-900">Начните поиск</h3>
             <p className="mt-2 text-gray-500">
-              Enter a search term to find relevant information from our knowledge base
+              Введите запрос, чтобы найти подтвержденную информацию в базе знаний
             </p>
           </div>
         )}
@@ -167,9 +167,9 @@ export default function Knowledge() {
         {debouncedQuery.trim() && !isLoading && !isError && data?.results.length === 0 && (
           <div className="text-center py-12">
             <AlertCircle className="mx-auto h-12 w-12 text-gray-400" aria-hidden="true" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">No Results Found</h3>
+            <h3 className="mt-4 text-lg font-medium text-gray-900">Ничего не найдено</h3>
             <p className="mt-2 text-gray-500">
-              {data.message || `We could not find any results for "${debouncedQuery}". Try different keywords or broader terms.`}
+              {data.message || `По запросу "${debouncedQuery}" ничего не найдено. Попробуйте другие слова или более общий запрос.`}
             </p>
             {data.escalation && (
               <p className="mt-2 text-sm text-gray-500">
@@ -183,7 +183,7 @@ export default function Knowledge() {
         {!isLoading && !isError && data && data.results.length > 0 && (
           <>
             <div className="mb-4 text-sm text-gray-600">
-              Found {data.total} {data.total === 1 ? 'result' : 'results'} for &quot;{data.query}&quot;
+              Найдено результатов: {data.total} по запросу &quot;{data.query}&quot;
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -209,7 +209,7 @@ export default function Knowledge() {
                     {item.verified && (
                       <CheckCircle
                         className="w-5 h-5 text-green-500 flex-shrink-0 ml-2"
-                        aria-label="Verified"
+                        aria-label="Проверено"
                       />
                     )}
                   </div>
@@ -227,7 +227,7 @@ export default function Knowledge() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                        {Math.round(item.relevanceScore * 100)}% match
+                        {Math.round(item.relevanceScore * 100)}% совпадение
                       </span>
                     </div>
                   </div>
@@ -265,7 +265,7 @@ export default function Knowledge() {
                       {selectedItem.verified && (
                         <div className="flex items-center space-x-1 text-green-600">
                           <CheckCircle className="w-4 h-4" />
-                          <span>Verified</span>
+                          <span>Проверено</span>
                         </div>
                       )}
                     </div>
@@ -273,7 +273,7 @@ export default function Knowledge() {
                   <button
                     onClick={handleCloseDetail}
                     className="text-gray-400 hover:text-gray-600 transition-colors ml-4"
-                    aria-label="Close detail view"
+                    aria-label="Закрыть подробности"
                   >
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -294,7 +294,7 @@ export default function Knowledge() {
                 {/* Footer */}
                 <div className="mt-6 pt-6 border-t border-gray-200 flex items-center justify-between">
                   <div className="text-sm text-gray-500">
-                    Last updated: {new Date(selectedItem.updatedAt).toLocaleDateString()}
+                    Обновлено: {new Date(selectedItem.updatedAt).toLocaleDateString('ru-RU')}
                   </div>
                   {selectedItem.source.url && (
                     <a
@@ -303,7 +303,7 @@ export default function Knowledge() {
                       rel="noopener noreferrer"
                       className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors"
                     >
-                      <span>View Source</span>
+                      <span>Открыть источник</span>
                       <ExternalLink className="w-4 h-4" />
                     </a>
                   )}

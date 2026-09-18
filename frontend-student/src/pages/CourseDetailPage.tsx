@@ -14,14 +14,14 @@ export default function CourseDetailPage() {
   })
 
   if (isLoading) {
-    return <div className="text-center py-8">Loading...</div>
+    return <div className="text-center py-8">Загрузка...</div>
   }
 
   return (
     <div className="px-4 py-6">
       <div className="mb-6">
         <Link to="/courses" className="text-indigo-600 hover:text-indigo-500">
-          ← Back to Courses
+          ← Назад к курсам
         </Link>
       </div>
 
@@ -31,7 +31,7 @@ export default function CourseDetailPage() {
           <p className="text-gray-600 mb-8">{course?.description}</p>
 
           <div className="border-t border-gray-200 pt-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Course Materials</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Материалы курса</h2>
             {course?.materials?.length > 0 ? (
               <div className="space-y-4">
                 {course.materials.map((material: any) => (
@@ -48,38 +48,38 @@ export default function CourseDetailPage() {
                         rel="noopener noreferrer"
                         className="text-sm text-indigo-600 hover:text-indigo-500 mt-2 inline-block"
                       >
-                        View Material →
+                        Открыть материал →
                       </a>
                     )}
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500">No materials available yet.</p>
+              <p className="text-gray-500">Материалы пока не добавлены.</p>
             )}
           </div>
 
           <div className="border-t border-gray-200 pt-6 mt-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Quizzes</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Тесты</h2>
             {course?.quizzes?.length > 0 ? (
               <div className="space-y-4">
                 {course.quizzes.map((quiz: any) => (
                   <div key={quiz.id} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-medium text-gray-900">{quiz.title}</h3>
-                      <p className="text-sm text-gray-500 mt-1">{quiz.questions?.length || 0} questions</p>
+                      <p className="text-sm text-gray-500 mt-1">Вопросов: {quiz.questions?.length || 0}</p>
                     </div>
                     <Link
                       to={`/quiz/${quiz.id}`}
                       className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
                     >
-                      Take Quiz
+                      Пройти тест
                     </Link>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500">No quizzes available yet.</p>
+              <p className="text-gray-500">Тесты пока не добавлены.</p>
             )}
           </div>
         </div>

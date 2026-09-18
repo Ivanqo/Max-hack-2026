@@ -16,6 +16,34 @@ from apps.notifications.integrations.max.webapp import (
     validate_init_data,
 )
 from apps.notifications.models import MaxWebhookEvent
+from apps.notifications.services import get_notification_service
+
+
+def get_or_create_max_student(max_user_id, username='', first_name='', last_name=''):
+    """Find or create the local student account linked to a MAX user id."""
+    User = get_user_model()
+    linked_user = User.objects.filter(max_user_id=max_user_id).first()
+    if linked_user:
+        return linked_user
+
+    email = f'max_{max_user_id}@max.local'
+    user, created = User.objects.get_or_create(
+        email=email,
+        defaults={
+            'first_name': first_name or 'MAX',
+            'last_name': last_name or 'Student',
+            'role': 'student',
+            'username': username,
+            'is_active': True,
+        },
+    )
+    if created:
+        user.set_unusable_password()
+        user.max_user_id = str(max_user_id)
+        user.max_username = username
+        user.max_linked_at = timezone.now()
+        user.save(update_fields=['password', 'max_user_id', 'max_username', 'max_linked_at'])
+    return user
 
 
 class MaxLaunchView(APIView):
@@ -47,7 +75,9 @@ class MaxLaunchView(APIView):
         if linked_user and not authenticated:
             user = linked_user
         elif not user:
-            user = self._create_student_for_max(launch)
+            user = get_or_create_max_student(
+                launch.max_user_id, launch.username, launch.first_name, launch.last_name,
+            )
 
         user.max_user_id = launch.max_user_id
         user.max_username = launch.username
@@ -78,24 +108,6 @@ class MaxLaunchView(APIView):
             },
         })
 
-    def _create_student_for_max(self, launch):
-        User = get_user_model()
-        email = f'max_{launch.max_user_id}@max.local'
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={
-                'first_name': launch.first_name or 'MAX',
-                'last_name': launch.last_name or 'Student',
-                'role': 'student',
-                'username': launch.username,
-                'is_active': True,
-            },
-        )
-        if created:
-            user.set_unusable_password()
-            user.save(update_fields=['password'])
-        return user
-
 
 class MaxWebhookView(APIView):
     """Receive MAX Bot API webhook updates with secret/idempotency checks."""
@@ -125,11 +137,40 @@ class MaxWebhookView(APIView):
                 'payload': payload,
             },
         )
+        if created and str(event_type) == 'bot_started':
+            self._send_welcome(payload, event.event_id)
+
         return Response({
             'ok': True,
             'duplicate': not created,
             'event_id': event.event_id,
         })
+
+    def _send_welcome(self, payload: dict, event_id: str) -> None:
+        """Greet a user who just pressed Start and hand them the mini-app button."""
+        user = payload.get('user') or {}
+        max_user_id = str(user.get('user_id') or user.get('id') or '').strip()
+        if not max_user_id:
+            return
+
+        student = get_or_create_max_student(
+            max_user_id,
+            username=str(user.get('username') or ''),
+            first_name=str(user.get('first_name') or ''),
+            last_name=str(user.get('last_name') or ''),
+        )
+
+        service = get_notification_service()
+        service.send_notification(
+            student=student,
+            title='UniPath MAX',
+            message=(
+                'Привет! UniPath MAX поможет собрать карьерный профиль, '
+                'построить Career GPS и найти подходящие стажировки и практики. '
+                'Открой мини-приложение, чтобы начать.'
+            ),
+            idempotency_key=f'max:bot_started:{event_id}',
+        )
 
     def _valid_secret(self, request) -> bool:
         expected = getattr(settings, 'MAX_WEBHOOK_SECRET', '')

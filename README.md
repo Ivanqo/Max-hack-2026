@@ -14,7 +14,7 @@ UniPath MAX is a reproducible MVP for the educational solutions track: a MAX min
 8. Admin publishes a matching opportunity.
 9. Backend creates one idempotent notification per matching subscription.
 10. In `mock` mode the notification is stored as `simulated`; in `real` mode `RealMaxClient` sends `POST https://platform-api2.max.ru/messages?user_id=<max_user_id>` with `Authorization: <MAX_BOT_TOKEN>`.
-11. The MAX message includes an `open_app` inline button with payload `opportunity_<id>`.
+11. If `MAX_OPEN_APP_TARGET` is configured, the MAX message includes an `open_app` inline button with payload `opportunity_<id>`.
 12. User returns to the opportunity list and sees match score, reasons, and gaps.
 
 ## Architecture
@@ -74,7 +74,9 @@ MAX_INTEGRATION_MODE=mock
 MAX_BOT_TOKEN=
 MAX_WEBHOOK_SECRET=
 MAX_WEBHOOK_URL=
+MAX_OPEN_APP_TARGET=
 MAX_WEBAPP_BASE_URL=http://localhost:3000
+MAX_INITDATA_MAX_AGE_SECONDS=3600
 ```
 
 MAX production:
@@ -85,6 +87,7 @@ MAX_BOT_TOKEN=<real bot token>
 MAX_INTEGRATION_MODE=real
 MAX_WEBHOOK_SECRET=<random 32+ chars>
 MAX_WEBHOOK_URL=https://<public-domain>/api/max/webhook/
+MAX_OPEN_APP_TARGET=https://max.ru/<bot_username>
 MAX_WEBAPP_BASE_URL=https://<public-domain>/
 ```
 
@@ -93,9 +96,9 @@ Do not put real secrets in frontend code, `.env.example`, README, screenshots, o
 ## Ports
 
 - `5432`: PostgreSQL
-- `8000`: Django API
-- `3000`: Student frontend
-- `3001`: Admin frontend
+- `8000`: Django API (`BACKEND_PORT` can override)
+- `3000`: Student frontend (`STUDENT_PORT` can override)
+- `3001`: Admin frontend (`ADMIN_PORT` can override)
 
 ## Demo Accounts
 
@@ -122,6 +125,7 @@ Implemented production contract:
 - Webhook protection: `X-Max-Bot-Api-Secret`
 - Webhook subscription registration: `python manage.py register_max_webhook`
 - Mini-app launch validation: `POST /api/max/launch/` validates signed WebAppData/initData and links `max_user_id`.
+- `open_app` return buttons use `MAX_OPEN_APP_TARGET`, the public MAX bot username/link for the mini-app. `MAX_WEBAPP_BASE_URL` is the public frontend URL used when configuring the mini-app itself.
 
 Local deterministic mode:
 
@@ -130,6 +134,21 @@ Local deterministic mode:
 - No real MAX network call is made
 
 ## Manual Smoke Check
+
+Executable check:
+
+```bash
+cd backend
+python scripts/smoke_data_api.py --base-url http://localhost:8000
+```
+
+On Windows with the local virtualenv:
+
+```powershell
+backend/.venv/Scripts/python.exe backend/scripts/smoke_data_api.py --base-url http://localhost:8000
+```
+
+The smoke runner follows `DATA-API.yaml`: health, login, onboarding, Career GPS, opportunities, save, subscription, admin publish, notification verification, idempotent republish, knowledge verified source/fallback, and admin analytics.
 
 1. Start stack with `docker compose up --build`.
 2. Open student app and login as `student@demo.local / demo12345`.
@@ -140,7 +159,7 @@ Local deterministic mode:
 7. Create an active opportunity with requirements `Python`, `Django`, `REST`.
 8. Verify backend creates one notification for the matching subscription.
 9. In mock mode, notification has `delivery_status=simulated`.
-10. In real mode, linked students receive a MAX message with an `open_app` button returning to `opportunity_<id>`.
+10. In real mode, linked students receive a MAX message with an `open_app` button returning to `opportunity_<id>` when `MAX_OPEN_APP_TARGET` points to the public MAX bot/mini-app.
 
 Expected result: the student can return to the opportunity and see match percentage, reasons, gaps, and save state without manual DB edits.
 
@@ -161,6 +180,7 @@ Most-used endpoints:
 - `GET /api/student/opportunities/{id}`
 - `POST /api/student/opportunities/{id}/save`
 - `GET|POST /api/student/subscriptions`
+- `GET /api/v1/notifications/`
 - `GET /api/knowledge/search?q=...`
 - `GET|POST /api/admin/opportunities`
 - `GET /api/admin/analytics`
@@ -208,6 +228,7 @@ python manage.py register_max_webhook
 ## Known Limitations
 
 - `mock` MAX mode is deterministic local simulation, not proof of production delivery.
+- Real MAX return buttons require a public MAX bot/mini-app target in `MAX_OPEN_APP_TARGET`; local frontend URLs are not a valid proof of production return flow.
 - Knowledge search is deterministic keyword matching over seeded verified records.
 - Demo data is synthetic.
 - JWT refresh is present in backend but not fully wired into frontend UX.

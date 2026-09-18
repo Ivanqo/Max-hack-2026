@@ -47,9 +47,22 @@ const createSubscription = async (topic: string): Promise<void> => {
   await apiClient.post('/student/subscriptions', { topic, filters: { topic }, active: true });
 };
 
+const opportunityTypeLabels: Record<string, string> = {
+  internship: 'Стажировка',
+  job: 'Вакансия',
+  vacancy: 'Вакансия',
+  project: 'Проект',
+  hackathon: 'Хакатон',
+  event: 'Событие',
+  course: 'Курс',
+  'full-time': 'Полная занятость',
+  'part-time': 'Частичная занятость',
+  contract: 'Контракт',
+};
+
 export default function Opportunities() {
   const [filters, setFilters] = useState<{ type?: string; minMatch?: number }>({});
-  const [subscriptionTopic, setSubscriptionTopic] = useState('Backend');
+  const [subscriptionTopic, setSubscriptionTopic] = useState('Бэкенд');
   const [searchParams] = useSearchParams();
   const highlightedOpportunityId = searchParams.get('opportunity');
   const queryClient = useQueryClient();
@@ -129,7 +142,7 @@ export default function Opportunities() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 text-lg">Loading opportunities...</p>
+          <p className="text-gray-600 text-lg">Загружаем возможности...</p>
         </div>
       </div>
     );
@@ -140,15 +153,15 @@ export default function Opportunities() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Opportunities</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Не удалось загрузить возможности</h2>
           <p className="text-gray-600 mb-6">
-            {error instanceof Error ? error.message : 'An unexpected error occurred'}
+            Проверьте подключение и попробуйте еще раз.
           </p>
           <button
             onClick={() => queryClient.invalidateQueries({ queryKey: ['opportunities'] })}
             className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Try Again
+            Повторить
           </button>
         </div>
       </div>
@@ -160,18 +173,18 @@ export default function Opportunities() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
           <TrendingUp className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">No Opportunities Found</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Возможности не найдены</h2>
           <p className="text-gray-600 mb-6">
             {filters.type || filters.minMatch
-              ? 'Try adjusting your filters to see more results.'
-              : 'Check back later for new opportunities that match your profile.'}
+              ? 'Попробуйте изменить фильтры, чтобы увидеть больше результатов.'
+              : 'Загляните позже: новые возможности появятся после публикации администратором.'}
           </p>
           {(filters.type || filters.minMatch) && (
             <button
               onClick={() => setFilters({})}
               className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Clear Filters
+              Сбросить фильтры
             </button>
           )}
         </div>
@@ -184,9 +197,9 @@ export default function Opportunities() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Opportunities for You</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Возможности для вас</h1>
           <p className="text-gray-600">
-            {data.total} {data.total === 1 ? 'opportunity' : 'opportunities'} matched to your profile
+            Найдено возможностей по вашему профилю: {data.total}
           </p>
         </div>
 
@@ -194,7 +207,7 @@ export default function Opportunities() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
               <label htmlFor="subscription-topic" className="block text-sm font-medium text-gray-700 mb-1">
-                MAX subscription topic
+                Тема подписки MAX
               </label>
               <input
                 id="subscription-topic"
@@ -209,15 +222,15 @@ export default function Opportunities() {
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
             >
               <BellPlus className="h-4 w-4" />
-              {subscriptionMutation.isPending ? 'Creating...' : 'Create subscription'}
+              {subscriptionMutation.isPending ? 'Создаем...' : 'Создать подписку'}
             </button>
           </div>
           {subscriptionMutation.isSuccess && (
-            <p className="mt-3 text-sm text-green-700">Subscription saved. New matching publications will trigger MAX notification.</p>
+            <p className="mt-3 text-sm text-green-700">Подписка сохранена. Новые подходящие публикации создадут уведомление MAX.</p>
           )}
           {subscriptionMutation.error && (
             <p className="mt-3 text-sm text-red-700">
-              {subscriptionMutation.error instanceof Error ? subscriptionMutation.error.message : 'Failed to create subscription'}
+              Не удалось создать подписку. Попробуйте еще раз.
             </p>
           )}
         </div>
@@ -226,7 +239,7 @@ export default function Opportunities() {
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex flex-wrap gap-4">
           <div className="flex-1 min-w-[200px]">
             <label htmlFor="type-filter" className="block text-sm font-medium text-gray-700 mb-1">
-              Type
+              Тип
             </label>
             <select
               id="type-filter"
@@ -234,17 +247,17 @@ export default function Opportunities() {
               onChange={(e) => setFilters({ ...filters, type: e.target.value || undefined })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">All Types</option>
-              <option value="internship">Internship</option>
-              <option value="full-time">Full-time</option>
-              <option value="part-time">Part-time</option>
-              <option value="contract">Contract</option>
+              <option value="">Все типы</option>
+              <option value="internship">Стажировка</option>
+              <option value="full-time">Полная занятость</option>
+              <option value="part-time">Частичная занятость</option>
+              <option value="contract">Контракт</option>
             </select>
           </div>
 
           <div className="flex-1 min-w-[200px]">
             <label htmlFor="match-filter" className="block text-sm font-medium text-gray-700 mb-1">
-              Minimum Match
+              Минимальное совпадение
             </label>
             <select
               id="match-filter"
@@ -254,10 +267,10 @@ export default function Opportunities() {
               }
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">Any Match</option>
-              <option value="40">40% or higher</option>
-              <option value="60">60% or higher</option>
-              <option value="80">80% or higher</option>
+              <option value="">Любое совпадение</option>
+              <option value="40">40% и выше</option>
+              <option value="60">60% и выше</option>
+              <option value="80">80% и выше</option>
             </select>
           </div>
 
@@ -267,7 +280,7 @@ export default function Opportunities() {
                 onClick={() => setFilters({})}
                 className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 underline"
               >
-                Clear Filters
+                Сбросить фильтры
               </button>
             </div>
           )}
@@ -289,10 +302,10 @@ export default function Opportunities() {
                   <div className="flex-1">
                     <h2 className="text-xl font-bold text-gray-900 mb-1">{opportunity.title}</h2>
                     <p className="text-gray-600 mb-2">
-                      {opportunity.company} • {opportunity.location} • {opportunity.type}
+                      {opportunity.company} • {opportunity.location} • {opportunityTypeLabels[opportunity.type] || opportunity.type}
                     </p>
                     <p className="text-sm text-gray-500">
-                      Posted {new Date(opportunity.postedDate).toLocaleDateString()}
+                      Опубликовано {new Date(opportunity.postedDate).toLocaleDateString('ru-RU')}
                     </p>
                   </div>
 
@@ -301,14 +314,14 @@ export default function Opportunities() {
                       className={`text-center px-4 py-2 rounded-lg ${getMatchColor(opportunity.matchPercentage)}`}
                     >
                       <div className="text-2xl font-bold">{opportunity.matchPercentage}%</div>
-                      <div className="text-xs font-medium">Match</div>
+                      <div className="text-xs font-medium">Совпадение</div>
                     </div>
 
                     <button
                       onClick={() => handleToggleSave(opportunity)}
                       disabled={saveMutation.isPending || unsaveMutation.isPending}
                       className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
-                      aria-label={opportunity.isSaved ? 'Unsave opportunity' : 'Save opportunity'}
+                      aria-label={opportunity.isSaved ? 'Убрать из сохраненного' : 'Сохранить возможность'}
                     >
                       {opportunity.isSaved ? (
                         <BookmarkCheck className="w-6 h-6 text-blue-600" />
@@ -324,7 +337,7 @@ export default function Opportunities() {
                 {/* Match Reasons */}
                 {opportunity.matchReasons.length > 0 && (
                   <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Why you match:</h3>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Почему подходит:</h3>
                     <ul className="space-y-1">
                       {opportunity.matchReasons.map((reason, index) => (
                         <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
@@ -339,7 +352,7 @@ export default function Opportunities() {
                 {/* Gaps */}
                 {opportunity.gaps.length > 0 && (
                   <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Areas to improve:</h3>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2">Чего не хватает:</h3>
                     <ul className="space-y-1">
                       {opportunity.gaps.map((gap, index) => (
                         <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
@@ -353,7 +366,7 @@ export default function Opportunities() {
 
                 {/* Requirements */}
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-900 mb-2">Requirements:</h3>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-2">Требования:</h3>
                   <div className="flex flex-wrap gap-2">
                     {opportunity.requirements.map((req, index) => (
                       <span
@@ -368,10 +381,10 @@ export default function Opportunities() {
 
                 <div className="mt-4 pt-4 border-t border-gray-200 flex gap-3">
                   <button className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">
-                    Apply Now
+                    Откликнуться
                   </button>
                   <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                    Learn More
+                    Подробнее
                   </button>
                 </div>
               </div>

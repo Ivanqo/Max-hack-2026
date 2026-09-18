@@ -154,6 +154,7 @@ class TestRealMaxClient(TestCase):
                 return fake
         return Client(api_url='https://platform-api2.max.ru', api_key='token')
 
+    @override_settings(MAX_OPEN_APP_TARGET='https://max.ru/unipath_bot')
     def test_real_client_uses_messages_endpoint_and_raw_authorization(self):
         fake = FakeRequests(FakeResponse(200, {'message': {'mid': 'm-1'}}))
         result = self._client(fake).send_notification(
@@ -169,6 +170,20 @@ class TestRealMaxClient(TestCase):
         self.assertEqual(fake.last_headers['Authorization'], 'token')
         self.assertEqual(fake.last_params, {'user_id': 'max-1'})
         self.assertEqual(fake.last_payload['attachments'][0]['payload']['buttons'][0][0]['type'], 'open_app')
+        self.assertEqual(fake.last_payload['attachments'][0]['payload']['buttons'][0][0]['web_app'], 'https://max.ru/unipath_bot')
+
+    def test_real_client_omits_open_app_button_without_target(self):
+        fake = FakeRequests(FakeResponse(200, {'message': {'mid': 'm-2'}}))
+        result = self._client(fake).send_notification(
+            student_id='local-1',
+            title='Title',
+            message='Body',
+            opportunity_id='42',
+            metadata={'max_user_id': 'max-1', 'webapp_payload': 'opportunity_42'},
+        )
+
+        self.assertTrue(result['success'])
+        self.assertEqual(fake.last_payload['attachments'], [])
 
     def test_real_client_maps_provider_error_statuses(self):
         for status_code, expected in [
@@ -277,6 +292,18 @@ class MaxLaunchTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['max']['max_user_id'], '54321')
         self.assertEqual(response.data['max']['start_param'], 'opportunity_99')
+
+    def test_duplicate_outer_webappdata_fields_are_rejected(self):
+        signed = self._signed_init_data({
+            'auth_date': str(int(time.time())),
+            'user': json.dumps({'id': 11111, 'first_name': 'Duplicate'}),
+        })
+        response = APIClient().post(
+            '/api/max/launch/',
+            {'initData': '#' + urlencode({'WebAppData': signed}) + '&' + urlencode({'WebAppData': signed})},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400)
 
     def test_duplicate_init_data_fields_are_rejected(self):
         response = APIClient().post(

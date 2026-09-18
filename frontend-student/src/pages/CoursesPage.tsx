@@ -24,12 +24,12 @@ export default function CoursesPage() {
   })
 
   if (isLoading) {
-    return <div className="text-center py-8">Loading...</div>
+    return <div className="text-center py-8">Загрузка...</div>
   }
 
   return (
     <div className="px-4 py-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Available Courses</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Доступные курсы</h1>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {courses?.map((course: any) => (
@@ -40,7 +40,7 @@ export default function CoursesPage() {
 
               <div className="mt-4 flex items-center justify-between">
                 <span className="text-sm text-gray-500">
-                  {course.enrollments?.length || 0} students enrolled
+                  Записано студентов: {course.enrollments?.length || 0}
                 </span>
               </div>
 
@@ -49,7 +49,7 @@ export default function CoursesPage() {
                   to={`/courses/${course.id}`}
                   className="flex-1 inline-flex justify-center items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                 >
-                  View Details
+                  Подробнее
                 </Link>
                 {!course.isEnrolled && (
                   <button
@@ -57,7 +57,7 @@ export default function CoursesPage() {
                     disabled={enrollMutation.isPending}
                     className="flex-1 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
                   >
-                    {enrollMutation.isPending ? 'Enrolling...' : 'Enroll'}
+                    {enrollMutation.isPending ? 'Записываем...' : 'Записаться'}
                   </button>
                 )}
               </div>

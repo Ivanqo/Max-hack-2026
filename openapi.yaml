@@ -256,6 +256,25 @@ paths:
       responses:
         '201':
           description: Created subscription
+  /api/v1/notifications/:
+    get:
+      summary: List notifications for the current user
+      parameters:
+        - in: query
+          name: opportunity
+          schema:
+            type: integer
+          description: Filter notifications by opportunity id.
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, simulated, sent, failed]
+      responses:
+        '200':
+          description: Paginated notifications with delivery_status; mock MAX delivery is marked simulated.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/knowledge/search:
     get:
       summary: Search verified knowledge base
@@ -426,6 +445,27 @@ components:
         active:
           type: boolean
           default: true
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        message:
+          type: string
+        opportunity_title:
+          type: string
+        status:
+          type: string
+          enum: [pending, simulated, sent, failed]
+        delivery_status:
+          type: string
+          enum: [pending, simulated, sent, failed]
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
     AdminOpportunityRequest:
       type: object
       required: [title, company, description, type, location, requirements, status]

@@ -3,6 +3,12 @@ import { Plus, Edit, Trash2 } from 'lucide-react';
 import api from '@/api/client';
 import { CareerRole } from '@/types';
 
+const demandLevelLabels: Record<CareerRole['demandLevel'], string> = {
+  high: 'Высокий спрос',
+  medium: 'Средний спрос',
+  low: 'Низкий спрос',
+};
+
 export const CareerRoles = () => {
   const [roles, setRoles] = useState<CareerRole[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +32,7 @@ export const CareerRoles = () => {
       const response = await api.get('/career-roles');
       setRoles(response.data);
     } catch (error) {
-      console.error('Failed to fetch roles:', error);
+      console.error('Не удалось загрузить карьерные роли:', error);
     } finally {
       setLoading(false);
     }
@@ -59,7 +65,7 @@ export const CareerRoles = () => {
       });
       fetchRoles();
     } catch (error) {
-      console.error('Failed to save role:', error);
+      console.error('Не удалось сохранить карьерную роль:', error);
     }
   };
 
@@ -77,42 +83,42 @@ export const CareerRoles = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this role?')) return;
+    if (!confirm('Удалить эту карьерную роль?')) return;
     try {
       await api.delete(`/admin/career-roles/${id}`);
       fetchRoles();
     } catch (error) {
-      console.error('Failed to delete role:', error);
+      console.error('Не удалось удалить карьерную роль:', error);
     }
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div>Загрузка...</div>;
   }
 
   return (
     <div>
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Career Roles</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Карьерные роли</h1>
         <button
           onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
           <Plus size={20} />
-          Add Role
+          Добавить роль
         </button>
       </div>
 
       {showForm && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-xl font-bold mb-4">
-            {editingId ? 'Edit Career Role' : 'New Career Role'}
+            {editingId ? 'Редактировать карьерную роль' : 'Новая карьерная роль'}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Title
+                  Название
                 </label>
                 <input
                   type="text"
@@ -124,35 +130,35 @@ export const CareerRoles = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Average Salary
+                  Средняя зарплата
                 </label>
                 <input
                   type="text"
                   value={formData.avgSalary}
                   onChange={(e) => setFormData({ ...formData, avgSalary: e.target.value })}
                   required
-                  placeholder="e.g., $80,000 - $120,000"
+                  placeholder="например, 80 000 - 120 000 ₽"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Demand Level
+                Уровень спроса
               </label>
               <select
                 value={formData.demandLevel}
                 onChange={(e) => setFormData({ ...formData, demandLevel: e.target.value as any })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg"
               >
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
+                <option value="high">Высокий</option>
+                <option value="medium">Средний</option>
+                <option value="low">Низкий</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
+                Описание
               </label>
               <textarea
                 value={formData.description}
@@ -164,7 +170,7 @@ export const CareerRoles = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Skills (comma-separated)
+                Навыки через запятую
               </label>
               <input
                 type="text"
@@ -176,7 +182,7 @@ export const CareerRoles = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Education Path (one per line)
+                Образовательный путь по одному пункту в строке
               </label>
               <textarea
                 value={formData.educationPath}
@@ -190,7 +196,7 @@ export const CareerRoles = () => {
                 type="submit"
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
               >
-                {editingId ? 'Update' : 'Create'}
+                {editingId ? 'Обновить' : 'Создать'}
               </button>
               <button
                 type="button"
@@ -208,7 +214,7 @@ export const CareerRoles = () => {
                 }}
                 className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
               >
-                Cancel
+                Отменить
               </button>
             </div>
           </form>
@@ -231,13 +237,13 @@ export const CareerRoles = () => {
                         : 'bg-gray-100 text-gray-600'
                     }`}
                   >
-                    {role.demandLevel} demand
+                    {demandLevelLabels[role.demandLevel] ?? role.demandLevel}
                   </span>
                 </div>
                 <p className="text-gray-600 mb-2 font-semibold">{role.avgSalary}</p>
                 <p className="text-gray-700 mb-4">{role.description}</p>
                 <div className="mb-3">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Skills:</p>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Навыки:</p>
                   <div className="flex gap-2 flex-wrap">
                     {role.skills.map((skill) => (
                       <span
@@ -250,7 +256,7 @@ export const CareerRoles = () => {
                   </div>
                 </div>
                 <p className="text-sm text-gray-500">
-                  Updated: {new Date(role.updatedAt).toLocaleDateString()}
+                  Обновлено: {new Date(role.updatedAt).toLocaleDateString('ru-RU')}
                 </p>
               </div>
               <div className="flex gap-2">

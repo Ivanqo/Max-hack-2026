@@ -82,18 +82,17 @@ def _parse_init_data(init_data: str) -> dict[str, str]:
             'username': 'mock_student',
         }
     pairs = parse_qsl(init_data, keep_blank_values=True)
-    outer = dict(pairs)
+    outer: dict[str, str] = {}
+    for key, value in pairs:
+        if key in outer:
+            raise MaxInitDataError('MAX initData contains duplicate fields')
+        outer[key] = value
     for key in ['WebAppData', 'web_app_data', 'initData', 'init_data']:
         nested = outer.get(key)
         if nested and nested != init_data:
             return _parse_init_data(nested)
 
-    params: dict[str, str] = {}
-    for key, value in pairs:
-        if key in params:
-            raise MaxInitDataError('MAX initData contains duplicate fields')
-        params[key] = value
-    return params
+    return outer
 
 
 def _verify_hash(params: dict[str, str], supplied_hash: str) -> None:

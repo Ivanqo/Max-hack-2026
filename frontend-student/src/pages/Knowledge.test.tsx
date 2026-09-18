@@ -39,7 +39,7 @@ describe('Knowledge', () => {
     });
 
     renderWithProviders(<Knowledge />);
-    await userEvent.type(screen.getByLabelText(/search knowledge base/i), 'практика');
+    await userEvent.type(screen.getByLabelText(/поиск по базе знаний/i), 'практика');
 
     expect(await screen.findByText('Как оформить производственную практику')).toBeInTheDocument();
     expect(screen.getByText('Учебный офис')).toBeInTheDocument();
@@ -58,7 +58,7 @@ describe('Knowledge', () => {
     });
 
     renderWithProviders(<Knowledge />);
-    await userEvent.type(screen.getByLabelText(/search knowledge base/i), 'unknown');
+    await userEvent.type(screen.getByLabelText(/поиск по базе знаний/i), 'unknown');
 
     await waitFor(() => expect(screen.getByText('Не найден подтвержденный актуальный материал.')).toBeInTheDocument());
     expect(screen.getByText(/helpdesk@demo.local/)).toBeInTheDocument();

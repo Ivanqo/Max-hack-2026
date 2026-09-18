@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const { access: token, user: userData } = response.data;
 
     if (!MANAGER_ROLES.includes(userData.role)) {
-      throw new Error('Access denied. Manager privileges required.');
+      throw new Error('Доступ запрещен. Нужны права администратора или редактора.');
     }
 
     localStorage.setItem('adminToken', token);

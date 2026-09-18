@@ -2,6 +2,7 @@
 Real MAX Client - Implementation for production MAX API integration.
 """
 import logging
+import re
 from typing import Dict, Any, Optional
 from django.conf import settings
 from .client import MaxClient
@@ -176,6 +177,10 @@ class RealMaxClient(MaxClient):
         secret = secret or getattr(settings, 'MAX_WEBHOOK_SECRET', '')
         if not webhook_url or not secret:
             return self._failure('MAX webhook URL or secret is not configured')
+        if not webhook_url.startswith('https://'):
+            return self._failure('MAX webhook URL must use HTTPS')
+        if not re.fullmatch(r'[A-Za-z0-9_-]{5,256}', secret):
+            return self._failure('MAX webhook secret must match [A-Za-z0-9_-]{5,256}')
         requests = self._requests()
         if requests is None:
             return self._failure('requests package is not installed')
@@ -223,12 +228,12 @@ class RealMaxClient(MaxClient):
         metadata: Dict[str, Any],
     ) -> Dict[str, Any]:
         text = f"{title}\n\n{message}".strip()
-        web_app = getattr(settings, 'MAX_WEBAPP_BASE_URL', '').rstrip('/')
+        open_app_target = getattr(settings, 'MAX_OPEN_APP_TARGET', '').strip()
         payload = {
             'text': text,
             'attachments': [],
         }
-        if web_app:
+        if open_app_target:
             start_payload = metadata.get('webapp_payload') or (
                 f'opportunity_{opportunity_id}' if opportunity_id else 'notifications'
             )
@@ -238,7 +243,7 @@ class RealMaxClient(MaxClient):
                     'buttons': [[{
                         'type': 'open_app',
                         'text': 'Открыть в UniPath MAX',
-                        'web_app': web_app,
+                        'web_app': open_app_target,
                         'payload': start_payload,
                     }]]
                 },

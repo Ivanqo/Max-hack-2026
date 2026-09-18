@@ -3,6 +3,17 @@ import { AlertCircle, Plus, Edit, Trash2 } from 'lucide-react';
 import api from '@/api/client';
 import { Opportunity } from '@/types';
 
+const opportunityTypeLabels: Record<Opportunity['type'], string> = {
+  internship: 'Стажировка',
+  job: 'Вакансия',
+  project: 'Проект',
+};
+
+const opportunityStatusLabels: Record<Opportunity['status'], string> = {
+  active: 'Активна',
+  inactive: 'Неактивна',
+};
+
 export const Opportunities = () => {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +43,7 @@ export const Opportunities = () => {
       const response = await api.get('/admin/opportunities');
       setOpportunities(response.data);
     } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || 'Failed to fetch opportunities.');
+      setError('Не удалось загрузить возможности.');
     } finally {
       setLoading(false);
     }
@@ -67,7 +78,7 @@ export const Opportunities = () => {
       });
       fetchOpportunities();
     } catch (err: any) {
-      setSavingError(err.response?.data?.detail || err.message || 'Failed to save opportunity.');
+      setSavingError('Не удалось сохранить возможность.');
     }
   };
 
@@ -87,17 +98,17 @@ export const Opportunities = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this opportunity?')) return;
+    if (!confirm('Удалить эту возможность?')) return;
     try {
       await api.delete(`/admin/opportunities/${id}`);
       fetchOpportunities();
     } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || 'Failed to delete opportunity.');
+      setError('Не удалось удалить возможность.');
     }
   };
 
   if (loading) {
-    return <div className="rounded-lg bg-white p-6 shadow">Loading opportunities...</div>;
+    return <div className="rounded-lg bg-white p-6 shadow">Загружаем возможности...</div>;
   }
 
   if (error) {
@@ -106,13 +117,13 @@ export const Opportunities = () => {
         <div className="flex items-start gap-3">
           <AlertCircle className="mt-0.5 h-5 w-5 text-red-600" />
           <div>
-            <h1 className="font-semibold text-red-900">Could not load opportunities</h1>
+            <h1 className="font-semibold text-red-900">Не удалось загрузить возможности</h1>
             <p className="mt-1 text-sm text-red-700">{error}</p>
             <button
               onClick={fetchOpportunities}
               className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
             >
-              Retry
+              Повторить
             </button>
           </div>
         </div>
@@ -123,20 +134,20 @@ export const Opportunities = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Opportunities</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Возможности</h1>
         <button
           onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
           <Plus size={20} />
-          Add Opportunity
+          Добавить возможность
         </button>
       </div>
 
       {showForm && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-xl font-bold mb-4">
-            {editingId ? 'Edit Opportunity' : 'New Opportunity'}
+            {editingId ? 'Редактировать возможность' : 'Новая возможность'}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             {savingError && (
@@ -147,7 +158,7 @@ export const Opportunities = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Title
+                  Название
                 </label>
                 <input
                   type="text"
@@ -159,7 +170,7 @@ export const Opportunities = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Company
+                  Компания
                 </label>
                 <input
                   type="text"
@@ -173,21 +184,21 @@ export const Opportunities = () => {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Type
+                  Тип
                 </label>
                 <select
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 >
-                  <option value="internship">Internship</option>
-                  <option value="job">Job</option>
-                  <option value="project">Project</option>
+                  <option value="internship">Стажировка</option>
+                  <option value="job">Вакансия</option>
+                  <option value="project">Проект</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Location
+                  Локация
                 </label>
                 <input
                   type="text"
@@ -199,15 +210,15 @@ export const Opportunities = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Status
+                  Статус
                 </label>
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="active">Активна</option>
+                  <option value="inactive">Неактивна</option>
                 </select>
               </div>
             </div>
@@ -219,12 +230,12 @@ export const Opportunities = () => {
                   onChange={(e) => setFormData({ ...formData, remote: e.target.checked })}
                   className="rounded"
                 />
-                <span className="text-sm font-medium text-gray-700">Remote Position</span>
+                <span className="text-sm font-medium text-gray-700">Удаленный формат</span>
               </label>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
+                Описание
               </label>
               <textarea
                 value={formData.description}
@@ -236,7 +247,7 @@ export const Opportunities = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Requirements (one per line)
+                Требования по одному в строке
               </label>
               <textarea
                 value={formData.requirements}
@@ -250,7 +261,7 @@ export const Opportunities = () => {
                 type="submit"
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
               >
-                {editingId ? 'Update' : 'Create'}
+                {editingId ? 'Обновить' : 'Создать'}
               </button>
               <button
                 type="button"
@@ -270,7 +281,7 @@ export const Opportunities = () => {
                 }}
                 className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
               >
-                Cancel
+                Отменить
               </button>
             </div>
           </form>
@@ -291,26 +302,26 @@ export const Opportunities = () => {
                         : 'bg-gray-100 text-gray-600'
                     }`}
                   >
-                    {opp.status}
+                    {opportunityStatusLabels[opp.status] ?? opp.status}
                   </span>
                 </div>
                 <p className="text-gray-600 mb-2">{opp.company}</p>
                 <p className="text-gray-700 mb-4">{opp.description}</p>
                 <div className="flex gap-2 flex-wrap mb-2">
                   <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                    {opp.type}
+                    {opportunityTypeLabels[opp.type] ?? opp.type}
                   </span>
                   <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
                     {opp.location}
                   </span>
                   {opp.remote && (
                     <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
-                      Remote
+                      Удаленно
                     </span>
                   )}
                 </div>
                 <p className="text-sm text-gray-500">
-                  Updated: {new Date(opp.updatedAt).toLocaleDateString()}
+                  Обновлено: {new Date(opp.updatedAt).toLocaleDateString('ru-RU')}
                 </p>
               </div>
               <div className="flex gap-2">

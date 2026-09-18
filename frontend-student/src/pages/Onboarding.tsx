@@ -133,16 +133,16 @@ const UniversityStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Select Your University</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Выберите университет</h2>
         <p className="mt-2 text-sm text-gray-600">
-          Choose the university where you are currently studying
+          Укажите университет, в котором вы сейчас учитесь
         </p>
       </div>
 
       {error && (
         <div className="rounded-md bg-red-50 p-4" role="alert">
           <p className="text-sm text-red-800">
-            {error instanceof Error ? error.message : 'An error occurred'}
+            Не удалось загрузить университеты. Попробуйте еще раз.
           </p>
         </div>
       )}
@@ -150,7 +150,7 @@ const UniversityStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status">
-            <span className="sr-only">Loading universities...</span>
+            <span className="sr-only">Загружаем университеты...</span>
           </div>
         </div>
       ) : universities && universities.length > 0 ? (
@@ -173,7 +173,7 @@ const UniversityStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
         </div>
       ) : (
         <div className="rounded-md bg-gray-50 p-8 text-center">
-          <p className="text-gray-600">No universities available</p>
+          <p className="text-gray-600">Университеты недоступны</p>
         </div>
       )}
 
@@ -183,9 +183,9 @@ const UniversityStep: React.FC<StepProps> = ({ data, onChange, onNext }) => {
           onClick={onNext}
           disabled={!isValid}
           className="rounded-lg bg-blue-600 px-6 py-2.5 font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Continue to next step"
+          aria-label="Перейти к следующему шагу"
         >
-          Continue
+          Продолжить
         </button>
       </div>
     </div>
@@ -205,16 +205,16 @@ const InstituteStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Select Your Institute</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Выберите институт</h2>
         <p className="mt-2 text-sm text-gray-600">
-          Choose your institute or faculty
+          Укажите ваш институт или факультет
         </p>
       </div>
 
       {error && (
         <div className="rounded-md bg-red-50 p-4" role="alert">
           <p className="text-sm text-red-800">
-            {error instanceof Error ? error.message : 'An error occurred'}
+            Не удалось загрузить институты. Попробуйте еще раз.
           </p>
         </div>
       )}
@@ -222,7 +222,7 @@ const InstituteStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status">
-            <span className="sr-only">Loading institutes...</span>
+            <span className="sr-only">Загружаем институты...</span>
           </div>
         </div>
       ) : institutes && institutes.length > 0 ? (
@@ -245,7 +245,7 @@ const InstituteStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) 
         </div>
       ) : (
         <div className="rounded-md bg-gray-50 p-8 text-center">
-          <p className="text-gray-600">No institutes available</p>
+          <p className="text-gray-600">Институты недоступны</p>
         </div>
       )}
 
@@ -254,18 +254,18 @@ const InstituteStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) 
           type="button"
           onClick={onBack}
           className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          aria-label="Go back to previous step"
+          aria-label="Вернуться к предыдущему шагу"
         >
-          Back
+          Назад
         </button>
         <button
           type="button"
           onClick={onNext}
           disabled={!isValid}
           className="rounded-lg bg-blue-600 px-6 py-2.5 font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Continue to next step"
+          aria-label="Перейти к следующему шагу"
         >
-          Continue
+          Продолжить
         </button>
       </div>
     </div>
@@ -285,16 +285,16 @@ const CourseStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Select Your Course</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Выберите программу</h2>
         <p className="mt-2 text-sm text-gray-600">
-          Choose your current program or course of study
+          Укажите текущую образовательную программу и курс обучения
         </p>
       </div>
 
       {error && (
         <div className="rounded-md bg-red-50 p-4" role="alert">
           <p className="text-sm text-red-800">
-            {error instanceof Error ? error.message : 'An error occurred'}
+            Не удалось загрузить программы. Попробуйте еще раз.
           </p>
         </div>
       )}
@@ -302,7 +302,7 @@ const CourseStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status">
-            <span className="sr-only">Loading courses...</span>
+            <span className="sr-only">Загружаем программы...</span>
           </div>
         </div>
       ) : courses && courses.length > 0 ? (
@@ -325,13 +325,13 @@ const CourseStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => 
         </div>
       ) : (
         <div className="rounded-md bg-gray-50 p-8 text-center">
-          <p className="text-gray-600">No courses available</p>
+          <p className="text-gray-600">Программы недоступны</p>
         </div>
       )}
 
       <div>
         <label htmlFor="studyYear" className="block text-sm font-medium text-gray-700">
-          Year of study
+          Курс обучения
         </label>
         <select
           id="studyYear"
@@ -339,7 +339,7 @@ const CourseStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => 
           onChange={(e) => onChange('studyYear', e.target.value)}
           className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">Select year</option>
+          <option value="">Выберите курс</option>
           {[1, 2, 3, 4, 5, 6].map((year) => (
             <option key={year} value={year}>
               {year}
@@ -353,18 +353,18 @@ const CourseStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => 
           type="button"
           onClick={onBack}
           className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          aria-label="Go back to previous step"
+          aria-label="Вернуться к предыдущему шагу"
         >
-          Back
+          Назад
         </button>
         <button
           type="button"
           onClick={onNext}
           disabled={!isValid}
           className="rounded-lg bg-blue-600 px-6 py-2.5 font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Continue to next step"
+          aria-label="Перейти к следующему шагу"
         >
-          Continue
+          Продолжить
         </button>
       </div>
     </div>
@@ -391,16 +391,16 @@ const InterestsStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Select Your Interests</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Выберите интересы</h2>
         <p className="mt-2 text-sm text-gray-600">
-          Choose one or more areas you are interested in
+          Отметьте одну или несколько тем, которые вам интересны
         </p>
       </div>
 
       {error && (
         <div className="rounded-md bg-red-50 p-4" role="alert">
           <p className="text-sm text-red-800">
-            {error instanceof Error ? error.message : 'An error occurred'}
+            Не удалось загрузить интересы. Попробуйте еще раз.
           </p>
         </div>
       )}
@@ -408,7 +408,7 @@ const InterestsStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status">
-            <span className="sr-only">Loading interests...</span>
+            <span className="sr-only">Загружаем интересы...</span>
           </div>
         </div>
       ) : interests && interests.length > 0 ? (
@@ -434,13 +434,13 @@ const InterestsStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) 
         </div>
       ) : (
         <div className="rounded-md bg-gray-50 p-8 text-center">
-          <p className="text-gray-600">No interests available</p>
+          <p className="text-gray-600">Интересы недоступны</p>
         </div>
       )}
 
       {data.interests.length > 0 && (
         <div className="text-sm text-gray-600">
-          {data.interests.length} {data.interests.length === 1 ? 'interest' : 'interests'} selected
+          Выбрано интересов: {data.interests.length}
         </div>
       )}
 
@@ -449,18 +449,18 @@ const InterestsStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) 
           type="button"
           onClick={onBack}
           className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          aria-label="Go back to previous step"
+          aria-label="Вернуться к предыдущему шагу"
         >
-          Back
+          Назад
         </button>
         <button
           type="button"
           onClick={onNext}
           disabled={!isValid}
           className="rounded-lg bg-blue-600 px-6 py-2.5 font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Continue to next step"
+          aria-label="Перейти к следующему шагу"
         >
-          Continue
+          Продолжить
         </button>
       </div>
     </div>
@@ -493,23 +493,23 @@ const SkillsStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Select Your Skills</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Выберите навыки</h2>
         <p className="mt-2 text-sm text-gray-600">
-          Choose the skills you can already use in projects
+          Укажите навыки, которые уже умеете применять в проектах
         </p>
       </div>
 
       {error && (
         <div className="rounded-md bg-red-50 p-4" role="alert">
           <p className="text-sm text-red-800">
-            {error instanceof Error ? error.message : 'An error occurred'}
+            Не удалось загрузить навыки. Попробуйте еще раз.
           </p>
           <button
             type="button"
             onClick={() => refetch()}
             className="mt-3 rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
           >
-            Retry
+            Повторить
           </button>
         </div>
       )}
@@ -517,7 +517,7 @@ const SkillsStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" role="status">
-            <span className="sr-only">Loading skills...</span>
+            <span className="sr-only">Загружаем навыки...</span>
           </div>
         </div>
       ) : skills && skills.length > 0 ? (
@@ -545,12 +545,12 @@ const SkillsStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => 
                       value={value.level}
                       onChange={(e) => updateLevel(skill.name, Number(e.target.value))}
                       className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-                      aria-label={`${skill.name} level`}
+                      aria-label={`Уровень навыка ${skill.name}`}
                     >
-                      <option value={2}>Beginner</option>
-                      <option value={3}>Intermediate</option>
-                      <option value={4}>Advanced</option>
-                      <option value={5}>Expert</option>
+                      <option value={2}>Начальный</option>
+                      <option value={3}>Средний</option>
+                      <option value={4}>Продвинутый</option>
+                      <option value={5}>Экспертный</option>
                     </select>
                   )}
                 </div>
@@ -560,7 +560,7 @@ const SkillsStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => 
         </div>
       ) : (
         <div className="rounded-md bg-gray-50 p-8 text-center">
-          <p className="text-gray-600">No skills available</p>
+          <p className="text-gray-600">Навыки недоступны</p>
         </div>
       )}
 
@@ -570,7 +570,7 @@ const SkillsStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => 
           onClick={onBack}
           className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         >
-          Back
+          Назад
         </button>
         <button
           type="button"
@@ -578,7 +578,7 @@ const SkillsStep: React.FC<StepProps> = ({ data, onChange, onNext, onBack }) => 
           disabled={!isValid}
           className="rounded-lg bg-blue-600 px-6 py-2.5 font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Continue
+          Продолжить
         </button>
       </div>
     </div>
@@ -597,27 +597,27 @@ const CareerGoalStep: React.FC<StepProps & { isSubmitting: boolean }> = ({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">What is Your Career Goal?</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Какая у вас карьерная цель?</h2>
         <p className="mt-2 text-sm text-gray-600">
-          Tell us about your career aspirations and what you hope to achieve
+          Расскажите, к какой роли или профессиональному результату хотите прийти
         </p>
       </div>
 
       <div>
         <label htmlFor="careerGoal" className="block text-sm font-medium text-gray-700">
-          Career Goal
+          Карьерная цель
         </label>
         <textarea
           id="careerGoal"
           rows={6}
           value={data.careerGoal}
           onChange={(e) => onChange('careerGoal', e.target.value)}
-          placeholder="E.g., I want to become a software engineer at a leading tech company..."
+          placeholder="Например: хочу стать бэкенд-разработчиком и работать над сервисами для студентов..."
           className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           aria-describedby="careerGoalHelp"
         />
         <p id="careerGoalHelp" className="mt-2 text-sm text-gray-500">
-          Share your goals and we will help match you with relevant opportunities
+          Опишите цель, а мы поможем подобрать релевантные возможности
         </p>
       </div>
 
@@ -627,9 +627,9 @@ const CareerGoalStep: React.FC<StepProps & { isSubmitting: boolean }> = ({
           onClick={onBack}
           disabled={isSubmitting}
           className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Go back to previous step"
+          aria-label="Вернуться к предыдущему шагу"
         >
-          Back
+          Назад
         </button>
         <button
           type="submit"
@@ -639,10 +639,10 @@ const CareerGoalStep: React.FC<StepProps & { isSubmitting: boolean }> = ({
           {isSubmitting ? (
             <>
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              <span>Submitting...</span>
+              <span>Отправляем...</span>
             </>
           ) : (
-            'Complete Onboarding'
+            'Завершить анкету'
           )}
         </button>
       </div>
@@ -658,16 +658,16 @@ interface ProgressIndicatorProps {
 
 const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({ currentStep, totalSteps }) => {
   const steps = [
-    { number: 1, label: 'University' },
-    { number: 2, label: 'Institute' },
-    { number: 3, label: 'Course' },
-    { number: 4, label: 'Interests' },
-    { number: 5, label: 'Skills' },
-    { number: 6, label: 'Career Goal' },
+    { number: 1, label: 'Университет' },
+    { number: 2, label: 'Институт' },
+    { number: 3, label: 'Программа' },
+    { number: 4, label: 'Интересы' },
+    { number: 5, label: 'Навыки' },
+    { number: 6, label: 'Цель' },
   ];
 
   return (
-    <nav aria-label="Progress" className="mb-8">
+    <nav aria-label="Прогресс" className="mb-8">
       <ol className="flex items-center justify-between">
         {steps.map((step, index) => {
           const isCompleted = step.number < currentStep;
@@ -759,9 +759,9 @@ const Onboarding: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-3xl">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome to the Platform</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Добро пожаловать в UniPath MAX</h1>
           <p className="mt-2 text-gray-600">
-            Let's get you set up in just a few steps
+            Настроим профиль за несколько шагов
           </p>
         </div>
 
@@ -772,9 +772,7 @@ const Onboarding: React.FC = () => {
             {mutation.error && (
               <div className="mb-6 rounded-md bg-red-50 p-4" role="alert">
                 <p className="text-sm text-red-800">
-                  {mutation.error instanceof Error
-                    ? mutation.error.message
-                    : 'Failed to submit onboarding'}
+                  Не удалось отправить анкету. Попробуйте еще раз.
                 </p>
               </div>
             )}
@@ -806,7 +804,7 @@ const Onboarding: React.FC = () => {
         </div>
 
         <div className="mt-6 text-center text-sm text-gray-500">
-          Step {currentStep} of 6
+          Шаг {currentStep} из 6
         </div>
       </div>
     </div>

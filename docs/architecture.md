@@ -32,7 +32,7 @@ Views stay thin enough to handle request/response details, permissions, audit lo
 
 ## Integration Boundaries
 
-MAX is behind an adapter. Mock mode marks messages as `simulated` and keeps local development deterministic. Real mode requires `MAX_API_URL` and `MAX_BOT_TOKEN`; if either is missing or delivery fails, the product keeps the notification state explicit instead of pretending a message was sent.
+MAX is behind an adapter. Mock mode marks messages as `simulated` and keeps local development deterministic. Real mode requires `MAX_API_URL` and `MAX_BOT_TOKEN`; if either is missing or delivery fails, the product keeps the notification state explicit instead of pretending a message was sent. Return-to-app buttons use MAX `open_app` only when `MAX_OPEN_APP_TARGET` is configured with the public bot username/link for the mini-app.
 
 ## Scaling Path
 

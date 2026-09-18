@@ -18,6 +18,7 @@ MAX_BOT_TOKEN=<real bot token>
 MAX_INTEGRATION_MODE=real
 MAX_WEBHOOK_SECRET=<random 32+ chars>
 MAX_WEBHOOK_URL=https://<public-domain>/api/max/webhook/
+MAX_OPEN_APP_TARGET=https://max.ru/<bot_username>
 MAX_WEBAPP_BASE_URL=https://<public-domain>/
 ```
 

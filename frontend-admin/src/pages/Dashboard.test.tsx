@@ -24,15 +24,15 @@ describe('Dashboard', () => {
         totalOpportunities: 12,
         totalKnowledgeBase: 24,
         userGrowth: [{ date: '2026-09-09', count: 5 }],
-        popularRoles: [{ role: 'Backend Developer', count: 7 }],
+        popularRoles: [{ role: 'Бэкенд-разработчик', count: 7 }],
       },
     });
 
     renderWithRouter(<Dashboard />);
 
-    expect(await screen.findByText('Total Users')).toBeInTheDocument();
+    expect(await screen.findByText('Всего пользователей')).toBeInTheDocument();
     expect(screen.getByText('42')).toBeInTheDocument();
-    expect(screen.getByText('Backend Developer')).toBeInTheDocument();
-    expect(screen.getByText('7 interests')).toBeInTheDocument();
+    expect(screen.getByText('Бэкенд-разработчик')).toBeInTheDocument();
+    expect(screen.getByText('Интересов: 7')).toBeInTheDocument();
   });
 });

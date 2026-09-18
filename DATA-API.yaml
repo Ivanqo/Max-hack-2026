@@ -111,6 +111,30 @@ checks:
       requirements: [Python, Django, REST]
       status: active
     expect_status: 201
+    extracts:
+      published_opportunity_id: $.id
+  - id: verify_subscription_notification
+    method: GET
+    path: /api/v1/notifications/?opportunity={published_opportunity_id}
+    auth: student_token
+    expect_status: 200
+    expect:
+      count: 1
+      results[0].delivery_status: simulated
+  - id: verify_publish_idempotency
+    method: PUT
+    path: /api/admin/opportunities/{published_opportunity_id}
+    auth: admin_token
+    body:
+      title: Backend MAX Bot Internship
+      company: MAX Labs
+      description: Build Django and MAX Bot API integrations.
+      type: internship
+      location: Campus / Hybrid
+      remote: true
+      requirements: [Python, Django, REST]
+      status: active
+    expect_status: 200
   - id: knowledge_search
     method: GET
     path: /api/knowledge/search?q=практика
@@ -123,4 +147,5 @@ checks:
     expect_status: 200
 notes:
   - MAX_INTEGRATION_MODE=mock keeps local demo deterministic and marks notifications as simulated.
-  - MAX_INTEGRATION_MODE=real uses https://platform-api2.max.ru/messages with Authorization header and requires MAX_BOT_TOKEN plus MAX_WEBHOOK_SECRET.
+  - Run executable check with `backend/.venv/Scripts/python.exe backend/scripts/smoke_data_api.py --base-url http://localhost:8000` on Windows or `python backend/scripts/smoke_data_api.py --base-url http://localhost:8000` on Unix.
+  - MAX_INTEGRATION_MODE=real uses https://platform-api2.max.ru/messages with Authorization header and requires MAX_BOT_TOKEN, MAX_WEBHOOK_SECRET, HTTPS webhook URL, and MAX_OPEN_APP_TARGET for open_app return buttons.

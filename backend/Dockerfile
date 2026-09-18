@@ -8,7 +8,21 @@ RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Trust the Russian Ministry of Digital Development CA chain used by
+# platform-api2.max.ru (see https://dev.max.ru/docs-api). Without this,
+# outbound HTTPS calls to the real MAX Bot API fail with
+# SSLCertVerificationError: unable to get local issuer certificate.
+COPY deploy/ca-certs/*.crt /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
+# Python's `requests` ignores the OS trust store and only trusts its
+# vendored certifi bundle unless told otherwise - point it at the system
+# store we just extended above.
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
 # Copy requirements first for better caching
 COPY requirements.txt .
@@ -39,7 +53,21 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     postgresql-client \
     curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Trust the Russian Ministry of Digital Development CA chain used by
+# platform-api2.max.ru (see https://dev.max.ru/docs-api). Without this,
+# outbound HTTPS calls to the real MAX Bot API fail with
+# SSLCertVerificationError: unable to get local issuer certificate.
+COPY deploy/ca-certs/*.crt /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
+# Python's `requests` ignores the OS trust store and only trusts its
+# vendored certifi bundle unless told otherwise - point it at the system
+# store we just extended above.
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
 # Copy Python dependencies from builder
 COPY --from=builder /install /usr/local

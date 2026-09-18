@@ -13,7 +13,7 @@ export const Analytics = () => {
         const response = await api.get('/admin/analytics');
         setAnalytics(response.data);
       } catch (error) {
-        console.error('Failed to fetch analytics:', error);
+        console.error('Не удалось загрузить аналитику:', error);
       } finally {
         setLoading(false);
       }
@@ -23,35 +23,35 @@ export const Analytics = () => {
   }, []);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div>Загрузка...</div>;
   }
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Analytics</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-8">Аналитика</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Total Users</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Всего пользователей</h3>
             <Users className="text-blue-500" size={24} />
           </div>
           <p className="text-4xl font-bold text-gray-900">{analytics?.totalUsers || 0}</p>
-          <p className="text-sm text-gray-600 mt-2">Registered accounts</p>
+          <p className="text-sm text-gray-600 mt-2">Зарегистрированные аккаунты</p>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Active Users</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Активные пользователи</h3>
             <Activity className="text-green-500" size={24} />
           </div>
           <p className="text-4xl font-bold text-gray-900">{analytics?.activeUsers || 0}</p>
-          <p className="text-sm text-gray-600 mt-2">Active in last 30 days</p>
+          <p className="text-sm text-gray-600 mt-2">Активны за последние 30 дней</p>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Growth Rate</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Доля активных</h3>
             <TrendingUp className="text-purple-500" size={24} />
           </div>
           <p className="text-4xl font-bold text-gray-900">
@@ -60,13 +60,13 @@ export const Analytics = () => {
               : 0}
             %
           </p>
-          <p className="text-sm text-gray-600 mt-2">User engagement</p>
+          <p className="text-sm text-gray-600 mt-2">Вовлеченность пользователей</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">User Growth Over Time</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Рост пользователей по дням</h2>
           <div className="space-y-3">
             {analytics?.userGrowth?.slice(-14).map((item) => (
               <div key={item.date} className="flex items-center gap-4">
@@ -93,7 +93,7 @@ export const Analytics = () => {
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Popular Career Roles</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Популярные карьерные роли</h2>
           <div className="space-y-3">
             {analytics?.popularRoles?.slice(0, 10).map((item, index) => (
               <div key={item.role} className="flex items-center gap-4">
@@ -106,22 +106,22 @@ export const Analytics = () => {
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Content Statistics</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Статистика контента</h2>
           <div className="space-y-4">
             <div className="flex justify-between items-center pb-3 border-b">
-              <span className="text-gray-700">Knowledge Base Articles</span>
+              <span className="text-gray-700">Материалы базы знаний</span>
               <span className="text-2xl font-bold text-gray-900">
                 {analytics?.totalKnowledgeBase || 0}
               </span>
             </div>
             <div className="flex justify-between items-center pb-3 border-b">
-              <span className="text-gray-700">Active Opportunities</span>
+              <span className="text-gray-700">Активные возможности</span>
               <span className="text-2xl font-bold text-gray-900">
                 {analytics?.totalOpportunities || 0}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-700">Career Roles</span>
+              <span className="text-gray-700">Карьерные роли</span>
               <span className="text-2xl font-bold text-gray-900">
                 {analytics?.popularRoles?.length || 0}
               </span>
@@ -130,12 +130,12 @@ export const Analytics = () => {
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">System Health</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Состояние системы</h2>
           <div className="space-y-4">
             <div>
               <div className="flex justify-between mb-2">
-                <span className="text-gray-700">User Engagement</span>
-                <span className="text-sm font-semibold text-green-600">Healthy</span>
+                <span className="text-gray-700">Вовлеченность пользователей</span>
+                <span className="text-sm font-semibold text-green-600">Стабильно</span>
               </div>
               <div className="bg-gray-200 rounded-full h-2">
                 <div className="bg-green-500 h-2 rounded-full" style={{ width: '85%' }} />
@@ -143,8 +143,8 @@ export const Analytics = () => {
             </div>
             <div>
               <div className="flex justify-between mb-2">
-                <span className="text-gray-700">Content Freshness</span>
-                <span className="text-sm font-semibold text-blue-600">Good</span>
+                <span className="text-gray-700">Актуальность контента</span>
+                <span className="text-sm font-semibold text-blue-600">Хорошо</span>
               </div>
               <div className="bg-gray-200 rounded-full h-2">
                 <div className="bg-blue-500 h-2 rounded-full" style={{ width: '72%' }} />
@@ -152,8 +152,8 @@ export const Analytics = () => {
             </div>
             <div>
               <div className="flex justify-between mb-2">
-                <span className="text-gray-700">Platform Activity</span>
-                <span className="text-sm font-semibold text-purple-600">Active</span>
+                <span className="text-gray-700">Активность платформы</span>
+                <span className="text-sm font-semibold text-purple-600">Активна</span>
               </div>
               <div className="bg-gray-200 rounded-full h-2">
                 <div className="bg-purple-500 h-2 rounded-full" style={{ width: '91%' }} />

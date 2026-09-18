@@ -30,6 +30,12 @@ interface Subscription {
   newItems: number;
 }
 
+const opportunityTypeLabels: Record<Opportunity['type'], string> = {
+  internship: 'Стажировка',
+  job: 'Вакансия',
+  project: 'Проект',
+};
+
 // API functions
 const fetchCareerGPS = async (): Promise<CareerGPSData> => {
   const response = await apiClient.get('/student/career-gps');
@@ -75,13 +81,13 @@ const CareerGPSCard = ({ data }: { data: CareerGPSData }) => {
   return (
     <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold text-gray-900">Career GPS</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Карьерный навигатор</h2>
         <TrendingUp className="w-6 h-6 text-blue-600" />
       </div>
 
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">Career Readiness Score</span>
+          <span className="text-sm font-medium text-gray-700">Готовность к цели</span>
           <span className="text-2xl font-bold text-blue-600">{percentage}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-3">
@@ -95,13 +101,13 @@ const CareerGPSCard = ({ data }: { data: CareerGPSData }) => {
           />
         </div>
         <p className="text-sm text-gray-500 mt-1">
-          {data.currentScore} of {data.maxScore} points
+          {data.currentScore} из {data.maxScore} баллов
         </p>
       </div>
 
       <div className="space-y-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 mb-2">Recommendations</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-2">Рекомендации</h3>
           <ul className="space-y-1">
             {data.recommendations.slice(0, 3).map((rec, index) => (
               <li key={index} className="text-sm text-gray-700 flex items-start">
@@ -113,7 +119,7 @@ const CareerGPSCard = ({ data }: { data: CareerGPSData }) => {
         </div>
 
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 mb-2">Next Steps</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-2">Следующие шаги</h3>
           <ul className="space-y-1">
             {data.nextSteps.slice(0, 2).map((step, index) => (
               <li key={index} className="text-sm text-gray-700 flex items-start">
@@ -126,7 +132,7 @@ const CareerGPSCard = ({ data }: { data: CareerGPSData }) => {
       </div>
 
       <button className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-        View Full Report
+        Открыть полный отчет
       </button>
     </div>
   );
@@ -164,7 +170,7 @@ const OpportunityCard = ({
         <button
           onClick={() => onToggleSave(opportunity.id)}
           className="p-2 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-          aria-label={opportunity.saved ? 'Remove from saved' : 'Save opportunity'}
+          aria-label={opportunity.saved ? 'Убрать из сохраненного' : 'Сохранить возможность'}
         >
           <Bookmark
             className={`w-5 h-5 ${
@@ -177,7 +183,7 @@ const OpportunityCard = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${typeColors[opportunity.type]}`}>
-            {opportunity.type.charAt(0).toUpperCase() + opportunity.type.slice(1)}
+            {opportunityTypeLabels[opportunity.type] || opportunity.type}
           </span>
           <span className="flex items-center text-sm text-gray-500">
             <Calendar className="w-4 h-4 mr-1" />
@@ -185,7 +191,7 @@ const OpportunityCard = ({
           </span>
         </div>
         <div className="flex items-center">
-          <span className="text-sm font-medium text-gray-700 mr-1">{opportunity.match}% match</span>
+          <span className="text-sm font-medium text-gray-700 mr-1">{opportunity.match}% совпадение</span>
           <div className="w-16 bg-gray-200 rounded-full h-2">
             <div
               className="bg-green-500 h-2 rounded-full"
@@ -206,7 +212,7 @@ const SubscriptionCard = ({ subscription }: { subscription: Subscription }) => {
           <h4 className="font-semibold text-gray-900 mb-1">{subscription.name}</h4>
           <p className="text-sm text-gray-600">{subscription.type}</p>
           <p className="text-xs text-gray-500 mt-1">
-            Updated {new Date(subscription.lastUpdate).toLocaleDateString()}
+            Обновлено {new Date(subscription.lastUpdate).toLocaleDateString('ru-RU')}
           </p>
         </div>
         {subscription.newItems > 0 && (
@@ -222,20 +228,20 @@ const SubscriptionCard = ({ subscription }: { subscription: Subscription }) => {
 const LoadingState = () => (
   <div className="flex items-center justify-center py-12">
     <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-    <span className="ml-3 text-gray-600">Loading...</span>
+    <span className="ml-3 text-gray-600">Загрузка...</span>
   </div>
 );
 
 const ErrorState = ({ message, onRetry }: { message: string; onRetry: () => void }) => (
   <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
     <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-3" />
-    <h3 className="text-lg font-semibold text-red-900 mb-2">Error Loading Data</h3>
+    <h3 className="text-lg font-semibold text-red-900 mb-2">Не удалось загрузить данные</h3>
     <p className="text-red-700 mb-4">{message}</p>
     <button
       onClick={onRetry}
       className="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
     >
-      Try Again
+      Повторить
     </button>
   </div>
 );
@@ -287,7 +293,7 @@ export default function Home() {
       await toggleSaveOpportunity(opportunityId);
       refetchOpportunities();
     } catch (error) {
-      console.error('Failed to toggle save:', error);
+      console.error('Не удалось изменить сохранение:', error);
     }
   };
 
@@ -296,8 +302,8 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
-          <p className="text-gray-600">Track your career progress and explore opportunities</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Панель</h1>
+          <p className="text-gray-600">Следите за карьерным прогрессом и находите подходящие возможности</p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -307,7 +313,7 @@ export default function Home() {
               <LoadingState />
             ) : careerGPSError ? (
               <ErrorState
-                message={(careerGPSError as Error).message}
+                message="Не удалось загрузить Карьерный навигатор."
                 onRetry={() => refetchCareerGPS()}
               />
             ) : careerGPSData ? (
@@ -316,16 +322,16 @@ export default function Home() {
 
             {/* Subscriptions Section */}
             <div className="mt-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Your Subscriptions</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Ваши подписки</h2>
               {isLoadingSubscriptions ? (
                 <LoadingState />
               ) : subscriptionsError ? (
                 <ErrorState
-                  message={(subscriptionsError as Error).message}
+                  message="Не удалось загрузить подписки."
                   onRetry={() => refetchSubscriptions()}
                 />
               ) : subscriptions.length === 0 ? (
-                <EmptyState message="No active subscriptions" />
+                <EmptyState message="Активных подписок пока нет" />
               ) : (
                 <div className="space-y-3">
                   {subscriptions.map((sub) => (
@@ -339,18 +345,18 @@ export default function Home() {
           {/* Right Column - Opportunities */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Opportunities</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Возможности</h2>
 
               {/* Search Bar */}
               <div className="relative mb-6">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search opportunities..."
+                  placeholder="Искать возможности..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  aria-label="Search opportunities"
+                  aria-label="Искать возможности"
                 />
               </div>
 
@@ -359,15 +365,15 @@ export default function Home() {
                 <LoadingState />
               ) : opportunitiesError ? (
                 <ErrorState
-                  message={(opportunitiesError as Error).message}
+                  message="Не удалось загрузить возможности."
                   onRetry={() => refetchOpportunities()}
                 />
               ) : opportunities.length === 0 ? (
                 <EmptyState
                   message={
                     searchQuery
-                      ? 'No opportunities found matching your search'
-                      : 'No opportunities available at the moment'
+                      ? 'По вашему запросу возможности не найдены'
+                      : 'Сейчас нет доступных возможностей'
                   }
                 />
               ) : (

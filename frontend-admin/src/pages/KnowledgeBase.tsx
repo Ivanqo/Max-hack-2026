@@ -24,7 +24,7 @@ export const KnowledgeBase = () => {
       const response = await api.get('/knowledge');
       setArticles(response.data);
     } catch (error) {
-      console.error('Failed to fetch articles:', error);
+      console.error('Не удалось загрузить материалы:', error);
     } finally {
       setLoading(false);
     }
@@ -49,7 +49,7 @@ export const KnowledgeBase = () => {
       setFormData({ title: '', content: '', category: '', tags: '' });
       fetchArticles();
     } catch (error) {
-      console.error('Failed to save article:', error);
+      console.error('Не удалось сохранить материал:', error);
     }
   };
 
@@ -65,41 +65,41 @@ export const KnowledgeBase = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this article?')) return;
+    if (!confirm('Удалить этот материал?')) return;
     try {
       await api.delete(`/admin/knowledge/${id}`);
       fetchArticles();
     } catch (error) {
-      console.error('Failed to delete article:', error);
+      console.error('Не удалось удалить материал:', error);
     }
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div>Загрузка...</div>;
   }
 
   return (
     <div>
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Knowledge Base</h1>
+        <h1 className="text-3xl font-bold text-gray-900">База знаний</h1>
         <button
           onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
           <Plus size={20} />
-          Add Article
+          Добавить материал
         </button>
       </div>
 
       {showForm && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-xl font-bold mb-4">
-            {editingId ? 'Edit Article' : 'New Article'}
+            {editingId ? 'Редактировать материал' : 'Новый материал'}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Title
+                Заголовок
               </label>
               <input
                 type="text"
@@ -111,7 +111,7 @@ export const KnowledgeBase = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category
+                Категория
               </label>
               <input
                 type="text"
@@ -123,7 +123,7 @@ export const KnowledgeBase = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tags (comma-separated)
+                Теги через запятую
               </label>
               <input
                 type="text"
@@ -134,7 +134,7 @@ export const KnowledgeBase = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Content
+                Содержание
               </label>
               <textarea
                 value={formData.content}
@@ -149,7 +149,7 @@ export const KnowledgeBase = () => {
                 type="submit"
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
               >
-                {editingId ? 'Update' : 'Create'}
+                {editingId ? 'Обновить' : 'Создать'}
               </button>
               <button
                 type="button"
@@ -160,7 +160,7 @@ export const KnowledgeBase = () => {
                 }}
                 className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
               >
-                Cancel
+                Отменить
               </button>
             </div>
           </form>
@@ -188,7 +188,7 @@ export const KnowledgeBase = () => {
                   ))}
                 </div>
                 <p className="text-sm text-gray-500">
-                  Updated: {new Date(article.updatedAt).toLocaleDateString()}
+                  Обновлено: {new Date(article.updatedAt).toLocaleDateString('ru-RU')}
                 </p>
               </div>
               <div className="flex gap-2">

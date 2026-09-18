@@ -13,7 +13,7 @@ export const Dashboard = () => {
         const response = await api.get('/admin/analytics');
         setAnalytics(response.data);
       } catch (error) {
-        console.error('Failed to fetch analytics:', error);
+        console.error('Не удалось загрузить аналитику:', error);
       } finally {
         setLoading(false);
       }
@@ -23,30 +23,30 @@ export const Dashboard = () => {
   }, []);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div>Загрузка...</div>;
   }
 
   const stats = [
     {
-      label: 'Total Users',
+      label: 'Всего пользователей',
       value: analytics?.totalUsers || 0,
       icon: Users,
       color: 'bg-blue-500',
     },
     {
-      label: 'Active Users',
+      label: 'Активные пользователи',
       value: analytics?.activeUsers || 0,
       icon: TrendingUp,
       color: 'bg-green-500',
     },
     {
-      label: 'Opportunities',
+      label: 'Возможности',
       value: analytics?.totalOpportunities || 0,
       icon: Briefcase,
       color: 'bg-purple-500',
     },
     {
-      label: 'Knowledge Articles',
+      label: 'Материалы базы знаний',
       value: analytics?.totalKnowledgeBase || 0,
       icon: BookOpen,
       color: 'bg-orange-500',
@@ -55,7 +55,7 @@ export const Dashboard = () => {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Dashboard</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-8">Панель</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {stats.map((stat) => {
@@ -78,24 +78,24 @@ export const Dashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">User Growth</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Рост пользователей</h2>
           <div className="space-y-2">
             {analytics?.userGrowth?.slice(-7).map((item) => (
               <div key={item.date} className="flex justify-between items-center">
                 <span className="text-gray-600">{new Date(item.date).toLocaleDateString()}</span>
-                <span className="font-semibold text-gray-900">{item.count} users</span>
+                <span className="font-semibold text-gray-900">Пользователей: {item.count}</span>
               </div>
             ))}
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Popular Career Roles</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Популярные карьерные роли</h2>
           <div className="space-y-2">
             {analytics?.popularRoles?.slice(0, 5).map((item) => (
               <div key={item.role} className="flex justify-between items-center">
                 <span className="text-gray-600">{item.role}</span>
-                <span className="font-semibold text-gray-900">{item.count} interests</span>
+                <span className="font-semibold text-gray-900">Интересов: {item.count}</span>
               </div>
             ))}
           </div>

@@ -14,13 +14,13 @@ describe('ProtectedRoute', () => {
       <MemoryRouter initialEntries={['/home']}>
         <Routes>
           <Route element={<ProtectedRoute />}>
-            <Route path="/home" element={<div>Home</div>} />
+            <Route path="/home" element={<div>Главная</div>} />
           </Route>
-          <Route path="/login" element={<div>Login Page</div>} />
+          <Route path="/login" element={<div>Страница входа</div>} />
         </Routes>
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Login Page')).toBeInTheDocument();
+    expect(screen.getByText('Страница входа')).toBeInTheDocument();
   });
 });

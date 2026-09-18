@@ -23,11 +23,11 @@ describe('Opportunities', () => {
       data: [
         {
           id: '1',
-          title: 'Backend Internship',
+          title: 'Бэкенд-стажировка',
           company: 'MAX Labs',
-          location: 'Campus',
+          location: 'Кампус',
           type: 'internship',
-          description: 'Build APIs.',
+          description: 'Разработка API.',
           requirements: ['Python', 'Docker'],
           matchPercentage: 82,
           matchReasons: ['Подходит Python'],
@@ -40,7 +40,7 @@ describe('Opportunities', () => {
 
     renderWithProviders(<Opportunities />);
 
-    expect(await screen.findByText('Backend Internship')).toBeInTheDocument();
+    expect(await screen.findByText('Бэкенд-стажировка')).toBeInTheDocument();
     expect(screen.getByText('82%')).toBeInTheDocument();
     expect(screen.getByText('Подходит Python')).toBeInTheDocument();
     expect(screen.getByText('Не хватает Docker')).toBeInTheDocument();

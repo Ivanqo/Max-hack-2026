@@ -38,21 +38,21 @@ export default function QuizPage() {
   }
 
   if (isLoading) {
-    return <div className="text-center py-8">Loading...</div>
+    return <div className="text-center py-8">Загрузка...</div>
   }
 
   if (submitted && result) {
     return (
       <div className="px-4 py-6 max-w-3xl mx-auto">
         <div className="bg-white shadow rounded-lg p-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Quiz Results</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Результаты теста</h1>
           <div className="mb-6">
             <div className="text-center py-8">
               <div className="text-6xl font-bold text-indigo-600 mb-2">
                 {result.score}%
               </div>
               <p className="text-xl text-gray-600">
-                {result.correctAnswers} out of {result.totalQuestions} correct
+                Правильных ответов: {result.correctAnswers} из {result.totalQuestions}
               </p>
             </div>
           </div>
@@ -60,7 +60,7 @@ export default function QuizPage() {
             onClick={() => navigate(`/courses/${quiz.courseId}`)}
             className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
           >
-            Back to Course
+            Вернуться к курсу
           </button>
         </div>
       </div>
@@ -71,7 +71,7 @@ export default function QuizPage() {
     <div className="px-4 py-6 max-w-3xl mx-auto">
       <div className="bg-white shadow rounded-lg p-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">{quiz?.title}</h1>
-        <p className="text-gray-600 mb-8">{quiz?.questions?.length} questions</p>
+        <p className="text-gray-600 mb-8">Вопросов: {quiz?.questions?.length}</p>
 
         <div className="space-y-8">
           {quiz?.questions?.map((question: any, index: number) => (
@@ -107,7 +107,7 @@ export default function QuizPage() {
             disabled={submitMutation.isPending || Object.keys(answers).length !== quiz?.questions?.length}
             className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitMutation.isPending ? 'Submitting...' : 'Submit Quiz'}
+            {submitMutation.isPending ? 'Отправляем...' : 'Отправить тест'}
           </button>
         </div>
       </div>

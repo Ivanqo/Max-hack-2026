@@ -88,13 +88,23 @@ export default function CareerGPS() {
     }
     return colors[priority as keyof typeof colors] || colors.low
   }
+  const priorityLabels: Record<string, string> = {
+    high: 'Высокий',
+    medium: 'Средний',
+    low: 'Низкий',
+  }
+  const actionTypeLabels: Record<string, string> = {
+    course: 'Курс',
+    quiz: 'Тест',
+    resource: 'Материал',
+  }
 
   if (goalsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading career goals...</p>
+          <p className="text-gray-600">Загружаем карьерные цели...</p>
         </div>
       </div>
     )
@@ -109,9 +119,9 @@ export default function CareerGPS() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Error loading career goals</h3>
+              <h3 className="text-sm font-medium text-red-800">Не удалось загрузить карьерные цели</h3>
               <p className="mt-2 text-sm text-red-700">
-                {goalsError instanceof Error ? goalsError.message : 'An unexpected error occurred'}
+                Проверьте подключение и попробуйте еще раз.
               </p>
             </div>
           </div>
@@ -123,20 +133,20 @@ export default function CareerGPS() {
   if (!goals || goals.length === 0) {
     return (
       <div className="px-4 py-6 max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Career GPS</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-6">Карьерный навигатор</h1>
         <div className="bg-white shadow rounded-lg p-8 text-center">
           <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
           </svg>
-          <h3 className="mt-4 text-lg font-medium text-gray-900">No career goals set</h3>
+          <h3 className="mt-4 text-lg font-medium text-gray-900">Карьерные цели не выбраны</h3>
           <p className="mt-2 text-sm text-gray-500">
-            Set your career goals to get personalized recommendations and track your progress.
+            Выберите карьерную цель, чтобы получить персональные рекомендации и отслеживать прогресс.
           </p>
           <button
             onClick={() => refetchAnalysis()}
             className="mt-6 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
           >
-            Set Career Goal
+            Выбрать карьерную цель
           </button>
         </div>
       </div>
@@ -146,22 +156,22 @@ export default function CareerGPS() {
   return (
     <div className="px-4 py-6 max-w-7xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Career GPS</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Карьерный навигатор</h1>
         <p className="mt-2 text-sm text-gray-600">
-          Track your progress towards your career goals and get personalized recommendations
+          Отслеживайте готовность к карьерной цели и получайте персональные рекомендации
         </p>
       </div>
 
       <div className="mb-6">
         <label htmlFor="goal-select" className="block text-sm font-medium text-gray-700 mb-2">
-          Select Career Goal
+          Выберите карьерную цель
         </label>
         <select
           id="goal-select"
           value={selectedGoalId || ''}
           onChange={(e) => setSelectedGoalId(Number(e.target.value))}
           className="block w-full max-w-md px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-          aria-label="Select career goal"
+          aria-label="Выберите карьерную цель"
         >
           {goals.map((goal) => (
             <option key={goal.id} value={goal.id}>
@@ -175,7 +185,7 @@ export default function CareerGPS() {
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto mb-3"></div>
-            <p className="text-gray-600 text-sm">Analyzing your career readiness...</p>
+            <p className="text-gray-600 text-sm">Анализируем вашу готовность...</p>
           </div>
         </div>
       )}
@@ -188,7 +198,7 @@ export default function CareerGPS() {
             </svg>
             <div className="ml-3">
               <p className="text-sm text-red-700">
-                {analysisError instanceof Error ? analysisError.message : 'Failed to load career analysis'}
+                Не удалось загрузить карьерный анализ. Попробуйте еще раз.
               </p>
             </div>
           </div>
@@ -211,7 +221,7 @@ export default function CareerGPS() {
                   <div className={`text-3xl font-bold ${getReadinessColor(analysis.readinessScore)}`}>
                     {analysis.readinessScore}%
                   </div>
-                  <div className="text-xs text-gray-600 mt-1">Readiness</div>
+                  <div className="text-xs text-gray-600 mt-1">Готовность</div>
                 </div>
               </div>
             </div>
@@ -221,7 +231,7 @@ export default function CareerGPS() {
                 <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Last updated: {new Date(analysis.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                Обновлено: {new Date(analysis.lastUpdated).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
               </div>
             </div>
           </div>
@@ -232,7 +242,7 @@ export default function CareerGPS() {
                 <svg className="h-5 w-5 text-green-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Your Strengths
+                Ваши сильные стороны
               </h3>
               {analysis.strengths.length > 0 ? (
                 <ul className="space-y-2">
@@ -244,7 +254,7 @@ export default function CareerGPS() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-gray-500 italic">No strengths identified yet. Complete courses to build your profile.</p>
+                <p className="text-sm text-gray-500 italic">Сильные стороны пока не определены. Добавьте навыки и достижения в профиль.</p>
               )}
             </div>
 
@@ -253,7 +263,7 @@ export default function CareerGPS() {
                 <svg className="h-5 w-5 text-orange-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
-                Skill Gaps
+                Чего не хватает
               </h3>
               {analysis.gaps.length > 0 ? (
                 <div className="space-y-4">
@@ -262,13 +272,13 @@ export default function CareerGPS() {
                       <div className="flex items-center justify-between mb-1">
                         <h4 className="text-sm font-medium text-gray-900">{gap.skill}</h4>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getPriorityBadge(gap.priority)}`}>
-                          {gap.priority}
+                          {priorityLabels[gap.priority] || gap.priority}
                         </span>
                       </div>
                       <div className="flex items-center space-x-2 text-xs text-gray-500">
-                        <span>Current: {gap.currentLevel}/10</span>
+                        <span>Текущий уровень: {gap.currentLevel}/10</span>
                         <span>→</span>
-                        <span>Required: {gap.requiredLevel}/10</span>
+                        <span>Требуется: {gap.requiredLevel}/10</span>
                       </div>
                       <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
                         <div
@@ -284,7 +294,7 @@ export default function CareerGPS() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 italic">No skill gaps identified. You are on track!</p>
+                <p className="text-sm text-gray-500 italic">Пробелов в навыках не найдено. Вы на верном пути!</p>
               )}
             </div>
           </div>
@@ -294,7 +304,7 @@ export default function CareerGPS() {
               <svg className="h-5 w-5 text-indigo-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              Next Actions
+              Следующие действия
             </h3>
             {analysis.nextActions.length > 0 ? (
               <div className="space-y-3">
@@ -320,7 +330,7 @@ export default function CareerGPS() {
                         <h4 className="text-sm font-medium text-gray-900">{action.title}</h4>
                         <div className="mt-1 flex items-center space-x-3 text-xs text-gray-500">
                           <span className="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-gray-800">
-                            {action.type}
+                            {actionTypeLabels[action.type] || action.type}
                           </span>
                           <span className="flex items-center">
                             <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -342,7 +352,7 @@ export default function CareerGPS() {
                 <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="mt-2 text-sm text-gray-500">All caught up! No immediate actions required.</p>
+                <p className="mt-2 text-sm text-gray-500">Все в порядке: срочных действий сейчас нет.</p>
               </div>
             )}
           </div>
