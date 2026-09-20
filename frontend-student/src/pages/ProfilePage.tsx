@@ -229,14 +229,14 @@ export default function ProfilePage() {
             rows={3}
             value={form.careerGoal}
             onChange={(e) => setForm({ ...form, careerGoal: e.target.value })}
-            placeholder="Например: Backend Developer"
+            placeholder="Например: BIM-координатор в строительстве"
           />
           <Input
             label="Интересы"
             hint="Через запятую"
             value={form.interests}
             onChange={(e) => setForm({ ...form, interests: e.target.value })}
-            placeholder="Backend, AI, хакатоны"
+            placeholder="BIM, проектирование, стажировки"
           />
           <Button fullWidth loading={mutation.isPending} onClick={saveBasicInfo}>Сохранить</Button>
         </div>

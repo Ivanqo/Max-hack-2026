@@ -265,13 +265,13 @@ class UserViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """
         Filter queryset based on user role for tenant isolation.
-        Admins see all users, others see only their university.
+        Platform superusers see all users; tenant admins see only their university.
         """
         user = self.request.user
         queryset = User.objects.all()
 
-        # Tenant isolation: non-admins see only their university
-        if user.role != 'admin':
+        # Tenant isolation: role='admin' is a university admin in the demo.
+        if not user.is_superuser:
             queryset = queryset.filter(university=user.university)
 
         # Apply search filter

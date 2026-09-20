@@ -53,11 +53,15 @@ class Smoke:
         self.admin_token = ""
         self.topic = f"SmokeTopic{int(time.time())}"
         self.opportunity_id = ""
+        self.university_id = ""
+        self.institute_id = ""
+        self.program_id = ""
 
     def run(self) -> None:
         self.health()
         self.student_token = self.login(STUDENT, "student")
         self.prevent_privilege_escalation()
+        self.pick_onboarding_options()
         self.onboarding()
         self.career_gps()
         self.opportunities()
@@ -102,23 +106,61 @@ class Smoke:
         )
         self.expect(response, 400, "prevent_privilege_escalation")
 
+    def pick_onboarding_options(self) -> None:
+        universities = self.request("GET", "/api/universities", token=self.student_token)
+        self.expect(universities, 200, "universities")
+        university_items = universities.json()
+        university = next((item for item in university_items if item.get("name") == "НИУ МГСУ"), None)
+        university = university or (university_items[0] if university_items else None)
+        if not university:
+            raise SmokeFailure("universities returned no items")
+        self.university_id = str(university["id"])
+
+        institutes = self.request(
+            "GET",
+            "/api/institutes",
+            token=self.student_token,
+            params={"universityId": self.university_id},
+        )
+        self.expect(institutes, 200, "institutes")
+        institute_items = institutes.json()
+        institute = next((item for item in institute_items if "цифров" in item.get("name", "").lower()), None)
+        institute = institute or (institute_items[0] if institute_items else None)
+        if not institute:
+            raise SmokeFailure("institutes returned no items")
+        self.institute_id = str(institute["id"])
+
+        programs = self.request(
+            "GET",
+            "/api/programs",
+            token=self.student_token,
+            params={"instituteId": self.institute_id},
+        )
+        self.expect(programs, 200, "programs")
+        program_items = programs.json()
+        program = next((item for item in program_items if "BIM" in item.get("name", "")), None)
+        program = program or (program_items[0] if program_items else None)
+        if not program:
+            raise SmokeFailure("programs returned no items")
+        self.program_id = str(program["id"])
+
     def onboarding(self) -> None:
         response = self.request(
             "POST",
             "/api/onboarding",
             token=self.student_token,
             json={
-                "universityId": "1",
-                "instituteId": "cs",
-                "courseId": "1",
+                "universityId": self.university_id,
+                "instituteId": self.institute_id,
+                "courseId": self.program_id,
                 "studyYear": "3",
-                "interests": ["Backend", "internships", self.topic],
+                "interests": ["BIM", "стажировки", self.topic],
                 "skills": [
-                    {"name": "Python", "level": 4},
-                    {"name": "Django", "level": 3},
-                    {"name": "REST", "level": 3},
+                    {"name": "BIM-моделирование", "level": 4},
+                    {"name": "Revit", "level": 3},
+                    {"name": "Проектная документация", "level": 3},
                 ],
-                "careerGoal": "Backend Developer",
+                "careerGoal": "BIM-координатор в строительстве",
             },
         )
         self.expect(response, 200, "onboarding")
@@ -231,13 +273,13 @@ class Smoke:
 
     def opportunity_payload(self) -> dict[str, Any]:
         return {
-            "title": f"MAX Smoke Internship {self.topic}",
-            "company": "MAX Labs",
-            "description": f"Build student notification integrations for {self.topic}.",
+            "title": f"Проверочная возможность {self.topic}",
+            "company": "Карьерный центр МГСУ",
+            "description": f"Проверка подписки и уведомлений для {self.topic}.",
             "type": "internship",
-            "location": "Campus / Hybrid",
+            "location": "Москва / кампус",
             "remote": True,
-            "requirements": ["Python", "Django", "REST", self.topic],
+            "requirements": [self.topic],
             "status": "active",
         }
 

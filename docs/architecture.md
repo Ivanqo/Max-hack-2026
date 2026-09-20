@@ -17,7 +17,7 @@ The MVP uses a modular monolith because the product needs one coherent release u
 
 ## Tenant Isolation
 
-Users, student profiles, career roles, opportunities, knowledge items, subscriptions, and demo universities carry university context. Student and admin endpoints filter by the current user's university so demo data from `Demo University` and `North Tech University` stays separated.
+Users, student profiles, career roles, opportunities, knowledge items, subscriptions, and demo universities carry university context. Student and admin endpoints filter by the current user's university so demo data from `НИУ МГСУ` and `МАИ` stays separated.
 
 ## Service Layer
 

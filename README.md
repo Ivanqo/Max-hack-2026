@@ -154,9 +154,9 @@ The smoke runner follows `DATA-API.yaml`: health, login, onboarding, Career GPS,
 2. Open student app and login as `student@demo.local / demo12345`.
 3. Complete onboarding or update `/profile` skills.
 4. Open Career GPS and verify readiness/gaps reflect selected skills.
-5. Open Opportunities, save one item, create subscription topic `Backend`.
+5. Open Opportunities, save one item, create subscription topic `BIM`.
 6. Open admin app and login as `admin@demo.local / demo12345`.
-7. Create an active opportunity with requirements `Python`, `Django`, `REST`.
+7. Create an active opportunity with requirements `BIM`, `Revit`, `Navisworks`.
 8. Verify backend creates one notification for the matching subscription.
 9. In mock mode, notification has `delivery_status=simulated`.
 10. In real mode, linked students receive a MAX message with an `open_app` button returning to `opportunity_<id>` when `MAX_OPEN_APP_TARGET` points to the public MAX bot/mini-app.

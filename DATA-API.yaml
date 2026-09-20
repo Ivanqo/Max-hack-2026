@@ -50,16 +50,16 @@ checks:
     auth: student_token
     body:
       universityId: "1"
-      instituteId: cs
-      courseId: "1"
+      instituteId: mgsu-digital
+      courseId: mgsu-bim
       studyYear: "3"
-      interests: [Backend, стажировки]
+      interests: [BIM, стажировки, практика]
       skills:
-        - name: Python
+        - name: BIM-моделирование
           level: 4
-        - name: Django
+        - name: Revit
           level: 3
-      careerGoal: Backend Developer
+      careerGoal: BIM-координатор в строительстве
     expect_status: 200
   - id: career_gps
     method: GET
@@ -83,9 +83,9 @@ checks:
     path: /api/student/subscriptions
     auth: student_token
     body:
-      topic: Backend
+      topic: BIM
       filters:
-        topic: Backend
+        topic: BIM
       active: true
     expect_status: 201
   - id: login_admin
@@ -102,13 +102,13 @@ checks:
     path: /api/admin/opportunities
     auth: admin_token
     body:
-      title: Backend MAX Bot Internship
-      company: MAX Labs
-      description: Build Django and MAX Bot API integrations.
+      title: BIM MAX Bot Internship
+      company: Мосинжпроект
+      description: Build a BIM notification scenario for construction students.
       type: internship
-      location: Campus / Hybrid
+      location: Москва / кампус
       remote: true
-      requirements: [Python, Django, REST]
+      requirements: [BIM, Revit, Navisworks]
       status: active
     expect_status: 201
     extracts:
@@ -126,13 +126,13 @@ checks:
     path: /api/admin/opportunities/{published_opportunity_id}
     auth: admin_token
     body:
-      title: Backend MAX Bot Internship
-      company: MAX Labs
-      description: Build Django and MAX Bot API integrations.
+      title: BIM MAX Bot Internship
+      company: Мосинжпроект
+      description: Build a BIM notification scenario for construction students.
       type: internship
-      location: Campus / Hybrid
+      location: Москва / кампус
       remote: true
-      requirements: [Python, Django, REST]
+      requirements: [BIM, Revit, Navisworks]
       status: active
     expect_status: 200
   - id: knowledge_search

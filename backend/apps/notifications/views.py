@@ -62,9 +62,13 @@ class NotificationViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = super().get_queryset()
 
-        # Admins see all notifications
-        if user.role == 'admin':
+        # Platform superusers see all notifications.
+        if user.is_superuser:
             return queryset
+
+        # Tenant-scoped admins see notifications for their university.
+        if user.role == 'admin':
+            return queryset.filter(student__university=user.university)
 
         # Students see only their own notifications
         if user.role == 'student':

@@ -1,11 +1,13 @@
 import pytest
 from django.core.management import call_command
+from django.test import override_settings
 from rest_framework.test import APIClient
 
 from apps.notifications.models import Notification
 
 
 @pytest.mark.django_db
+@override_settings(USE_MOCK_MAX_CLIENT=True)
 def test_demo_student_api_journey_smoke():
     call_command('seed_demo', verbosity=0)
 

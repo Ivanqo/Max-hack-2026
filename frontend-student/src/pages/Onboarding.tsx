@@ -315,7 +315,7 @@ export default function Onboarding() {
                 rows={5}
                 value={data.careerGoal}
                 onChange={(e) => update('careerGoal', e.target.value)}
-                placeholder="Например: хочу стать бэкенд-разработчиком и работать над сервисами для студентов"
+                placeholder="Например: хочу стать BIM-координатором и работать с цифровыми моделями строительных объектов"
               />
               <Footer
                 onBack={back}

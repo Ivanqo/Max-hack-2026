@@ -24,25 +24,40 @@ from apps.universities.models import University
 
 MANAGER_ROLES = ['editor', 'institute_admin', 'university_admin', 'organizer', 'admin']
 
-DEMO_INSTITUTES = [
-    {'id': 'cs', 'name': 'Institute of Computer Science', 'universityId': '1'},
-    {'id': 'data', 'name': 'Institute of Data and AI', 'universityId': '1'},
-    {'id': 'business', 'name': 'Institute of Product and Business', 'universityId': '1'},
-]
+DEFAULT_UNIVERSITY_NAME = 'НИУ МГСУ'
+
+DEMO_INSTITUTES_BY_UNIVERSITY = {
+    'НИУ МГСУ': [
+        {'id': 'mgsu-digital', 'name': 'Институт цифровых технологий и моделирования в строительстве'},
+        {'id': 'mgsu-construction', 'name': 'Институт строительства и архитектуры'},
+        {'id': 'mgsu-economics', 'name': 'Институт экономики, управления и коммуникаций в строительстве'},
+    ],
+    'МАИ': [
+        {'id': 'mai-aviation', 'name': 'Институт авиационной техники'},
+        {'id': 'mai-control', 'name': 'Институт систем управления, информатики и электроэнергетики'},
+        {'id': 'mai-robotics', 'name': 'Институт робототехники и интеллектуальных систем'},
+    ],
+}
 
 DEMO_PROGRAMS = [
-    {'id': '1', 'name': 'Software Engineering', 'instituteId': 'cs'},
-    {'id': '2', 'name': 'Applied Data Analytics', 'instituteId': 'data'},
-    {'id': '3', 'name': 'Digital Product Management', 'instituteId': 'business'},
+    {'id': 'mgsu-bim', 'name': 'Цифровое строительство и BIM', 'instituteId': 'mgsu-digital'},
+    {'id': 'mgsu-pgs', 'name': 'Промышленное и гражданское строительство', 'instituteId': 'mgsu-construction'},
+    {'id': 'mgsu-estimate', 'name': 'Экономика и управление в строительстве', 'instituteId': 'mgsu-economics'},
+    {'id': 'mai-uav', 'name': 'Проектирование беспилотных авиационных систем', 'instituteId': 'mai-aviation'},
+    {'id': 'mai-avionics', 'name': 'Системы управления летательными аппаратами', 'instituteId': 'mai-control'},
+    {'id': 'mai-embedded', 'name': 'Встроенные системы и робототехника', 'instituteId': 'mai-robotics'},
 ]
 
 DEMO_INTERESTS = [
-    {'id': 'Backend', 'name': 'Backend'},
-    {'id': 'AI', 'name': 'AI'},
+    {'id': 'BIM', 'name': 'BIM'},
+    {'id': 'проектирование', 'name': 'Проектирование'},
+    {'id': 'сметное дело', 'name': 'Сметное дело'},
+    {'id': 'геодезия', 'name': 'Геодезия'},
+    {'id': 'БПЛА', 'name': 'БПЛА'},
+    {'id': 'авионика', 'name': 'Авионика'},
     {'id': 'стажировки', 'name': 'Стажировки'},
-    {'id': 'хакатоны', 'name': 'Хакатоны'},
     {'id': 'практика', 'name': 'Практика'},
-    {'id': 'Data Analysis', 'name': 'Data Analysis'},
+    {'id': 'хакатоны', 'name': 'Хакатоны'},
 ]
 
 SKILL_LEVELS = {
@@ -132,7 +147,44 @@ DEMO_QUIZZES = {
 
 
 def _university(user):
-    return getattr(user, 'university', None) or 'Demo University'
+    return getattr(user, 'university', None) or DEFAULT_UNIVERSITY_NAME
+
+
+def _university_from_param(value, user=None):
+    if value:
+        university = University.objects.filter(id=value).first()
+        if university:
+            return university
+    current_name = _university(user) if user else DEFAULT_UNIVERSITY_NAME
+    return University.objects.filter(name=current_name).first()
+
+
+def _institute_options(university_name, university_id=''):
+    items = DEMO_INSTITUTES_BY_UNIVERSITY.get(
+        university_name,
+        DEMO_INSTITUTES_BY_UNIVERSITY[DEFAULT_UNIVERSITY_NAME],
+    )
+    return [
+        {
+            'id': item['id'],
+            'name': item['name'],
+            'universityId': str(university_id),
+        }
+        for item in items
+    ]
+
+
+def _institute_name(institute_id):
+    for items in DEMO_INSTITUTES_BY_UNIVERSITY.values():
+        for item in items:
+            if item['id'] == institute_id:
+                return item['name']
+    return ''
+
+
+def _program_name(program_id):
+    program = next((item for item in DEMO_PROGRAMS if item['id'] == program_id), None)
+    return program['name'] if program else ''
 
 
 def _is_manager(user):
@@ -281,7 +333,7 @@ def root_health(request):
 def universities(request):
     items = University.objects.all()
     if not items.exists():
-        return Response([{'id': '1', 'name': 'Demo University'}])
+        return Response([{'id': '1', 'name': DEFAULT_UNIVERSITY_NAME}])
     return Response([{'id': str(item.id), 'name': item.name} for item in items])
 
 
@@ -289,9 +341,10 @@ def universities(request):
 @permission_classes([IsAuthenticated])
 def institutes(request):
     university_id = request.query_params.get('universityId')
-    if not university_id:
-        return Response(DEMO_INSTITUTES)
-    return Response([item for item in DEMO_INSTITUTES if item['universityId'] == university_id])
+    university = _university_from_param(university_id, request.user)
+    university_name = university.name if university else _university(request.user)
+    resolved_id = university.id if university else university_id or ''
+    return Response(_institute_options(university_name, resolved_id))
 
 
 @api_view(['GET'])
@@ -322,9 +375,9 @@ def onboarding(request):
     university_id = request.data.get('universityId')
     university = University.objects.filter(id=university_id).first() if university_id else None
     university_name = university.name if university else _university(request.user)
-    institute = next((item['name'] for item in DEMO_INSTITUTES if item['id'] == request.data.get('instituteId')), '')
-    program = next((item['name'] for item in DEMO_PROGRAMS if item['id'] == request.data.get('courseId')), '')
-    goal_text = (request.data.get('careerGoal') or 'Backend Developer').strip()
+    institute = _institute_name(request.data.get('instituteId'))
+    program = _program_name(request.data.get('courseId'))
+    goal_text = (request.data.get('careerGoal') or 'BIM-координатор в строительстве').strip()
     goal, _ = CareerGoal.objects.get_or_create(
         name=goal_text[:255],
         defaults={'description': 'Career goal selected during onboarding.'},
@@ -705,7 +758,7 @@ def student_subscriptions(request):
     if request.method == 'POST':
         subscription = Subscription.objects.create(
             student=request.user,
-            topic=request.data.get('topic', 'Backend'),
+            topic=request.data.get('topic', 'BIM'),
             filters=request.data.get('filters') or {},
             active=request.data.get('active', True),
         )

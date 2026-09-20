@@ -100,7 +100,7 @@ export default function Opportunities() {
   const [minMatch, setMinMatch] = useState<number | undefined>()
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [subscribeOpen, setSubscribeOpen] = useState(false)
-  const [topic, setTopic] = useState('Backend')
+  const [topic, setTopic] = useState('BIM')
   const debouncedSearch = useDebounced(search)
 
   const filters = useMemo(() => ({ search: debouncedSearch, type, minMatch }), [debouncedSearch, type, minMatch])
@@ -229,7 +229,7 @@ export default function Opportunities() {
       <Sheet open={subscribeOpen} onClose={() => setSubscribeOpen(false)} title="Подписаться на тему">
         <div className="space-y-4">
           <p className="text-sm text-ink-500">Мы пришлём уведомление в MAX, как только появится подходящая новая возможность.</p>
-          <Input label="Тема" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Например, Backend" />
+          <Input label="Тема" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Например, BIM" />
           <Button fullWidth loading={subscribeMutation.isPending} disabled={!topic.trim()} onClick={() => subscribeMutation.mutate(topic)}>
             Создать подписку
           </Button>

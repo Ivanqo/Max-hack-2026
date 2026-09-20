@@ -17,7 +17,7 @@ class KnowledgeSearchService:
 
     def search(self, query: str, user, limit: int = 5) -> dict[str, Any]:
         clean_query = (query or '').strip()
-        university = getattr(user, 'university', '') or 'Demo University'
+        university = getattr(user, 'university', '') or 'НИУ МГСУ'
         profile = getattr(user, 'student_profile', None)
 
         if not clean_query:

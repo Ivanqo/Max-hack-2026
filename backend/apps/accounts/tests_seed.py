@@ -15,11 +15,11 @@ class SeedDemoCommandTest(TestCase):
         User = get_user_model()
         self.assertEqual(University.objects.count(), 2)
         self.assertTrue(User.objects.filter(email='student@demo.local').exists())
-        self.assertGreaterEqual(KnowledgeItem.objects.filter(university='Demo University').count(), 20)
-        self.assertGreaterEqual(Opportunity.objects.filter(university='Demo University').count(), 10)
+        self.assertGreaterEqual(KnowledgeItem.objects.filter(university='НИУ МГСУ').count(), 20)
+        self.assertGreaterEqual(Opportunity.objects.filter(university='НИУ МГСУ').count(), 10)
         self.assertTrue(
             Opportunity.objects.filter(
-                university='North Tech University',
-                title='North-only Robotics Internship',
+                university='МАИ',
+                title='Стажировка инженера БПЛА в лаборатории МАИ',
             ).exists()
         )

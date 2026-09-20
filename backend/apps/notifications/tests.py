@@ -16,6 +16,7 @@ from apps.opportunities.models import Opportunity
 from apps.subscriptions.models import Subscription
 
 
+@override_settings(USE_MOCK_MAX_CLIENT=True)
 class NotificationServiceTest(TestCase):
     def test_subscription_creates_simulated_notification_for_matching_opportunity(self):
         User = get_user_model()
@@ -172,6 +173,7 @@ class TestRealMaxClient(TestCase):
         self.assertEqual(fake.last_payload['attachments'][0]['payload']['buttons'][0][0]['type'], 'open_app')
         self.assertEqual(fake.last_payload['attachments'][0]['payload']['buttons'][0][0]['web_app'], 'https://max.ru/unipath_bot')
 
+    @override_settings(MAX_OPEN_APP_TARGET='')
     def test_real_client_omits_open_app_button_without_target(self):
         fake = FakeRequests(FakeResponse(200, {'message': {'mid': 'm-2'}}))
         result = self._client(fake).send_notification(
