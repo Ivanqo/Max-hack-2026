@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Info,
   Sparkles,
   Users,
   X,
@@ -24,7 +25,15 @@ const navItems = [
   { path: '/knowledge', icon: BookOpen, label: 'База знаний' },
   { path: '/career-roles', icon: Users, label: 'Карьерные роли' },
   { path: '/analytics', icon: BarChart3, label: 'Аналитика' },
+  { path: '/about', icon: Info, label: 'О платформе' },
 ];
+
+const roleTheme: Record<string, string> = {
+  admin: 'theme-admin',
+  editor: 'theme-editor',
+  university_admin: 'theme-university-admin',
+  institute_admin: 'theme-institute-admin',
+};
 
 function initials(value: string) {
   return value.split(/[\s@]/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || 'A';
@@ -74,7 +83,7 @@ export const Layout = ({ children }: LayoutProps) => {
   );
 
   return (
-    <div className="flex min-h-screen bg-ink-50/60">
+    <div className={cn('flex min-h-screen min-w-0 bg-ink-50/60', roleTheme[user?.role || 'admin'])}>
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-ink-100 bg-white lg:flex">
         <div className="flex items-center gap-2 p-5">
@@ -125,7 +134,7 @@ export const Layout = ({ children }: LayoutProps) => {
           </button>
         </header>
 
-        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
 
       {/* Mobile drawer */}

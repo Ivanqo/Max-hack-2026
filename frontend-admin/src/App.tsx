@@ -10,12 +10,14 @@ import { Opportunities } from '@/pages/Opportunities';
 import { CareerRoles } from '@/pages/CareerRoles';
 import { Analytics } from '@/pages/Analytics';
 import { Users } from '@/pages/Users';
+import { AboutPage } from '@/pages/AboutPage';
 
 function App() {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <BrowserRouter>
+    <div className="theme-admin min-h-screen">
+      <ToastProvider>
+        <AuthProvider>
+          <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route
@@ -30,6 +32,7 @@ function App() {
                       <Route path="/career-roles" element={<CareerRoles />} />
                       <Route path="/analytics" element={<Analytics />} />
                       <Route path="/users" element={<Users />} />
+                      <Route path="/about" element={<AboutPage />} />
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                   </Layout>
@@ -37,9 +40,10 @@ function App() {
               }
             />
           </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </ToastProvider>
+          </BrowserRouter>
+        </AuthProvider>
+      </ToastProvider>
+    </div>
   );
 }
 

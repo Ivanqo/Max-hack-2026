@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
-import { Compass, Home, LayoutGrid, LogOut, Menu, Sparkles, User, X, BookOpen } from 'lucide-react'
+import { Compass, Home, Info, LayoutGrid, LogOut, Menu, Sparkles, User, X, BookOpen } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/ui'
 
@@ -11,6 +11,8 @@ const navItems = [
   { to: '/knowledge', label: 'База знаний', icon: BookOpen },
   { to: '/profile', label: 'Профиль', icon: User },
 ]
+
+const aboutItem = { to: '/about', label: 'О платформе', icon: Info }
 
 function initials(name: string) {
   return name
@@ -32,7 +34,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-ink-50/60">
+    <div className="min-h-screen min-w-0 bg-ink-50/60">
       {/* Desktop top navigation */}
       <header className="sticky top-0 z-40 hidden border-b border-ink-100 bg-white/85 backdrop-blur md:block">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
@@ -58,6 +60,17 @@ export default function Layout() {
                   {item.label}
                 </NavLink>
               ))}
+              <NavLink
+                to={aboutItem.to}
+                className={({ isActive }) =>
+                  cn(
+                    'rounded-xl px-3.5 py-2 text-sm font-medium transition-colors',
+                    isActive ? 'bg-brand-50 text-brand-700' : 'text-ink-500 hover:bg-ink-50 hover:text-ink-800',
+                  )
+                }
+              >
+                {aboutItem.label}
+              </NavLink>
             </nav>
           </div>
           <div className="flex items-center gap-3">
@@ -116,6 +129,37 @@ export default function Layout() {
                 <p className="truncate text-xs text-ink-400">{user?.email}</p>
               </div>
             </div>
+            <nav className="mb-5 space-y-1">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium',
+                      isActive ? 'bg-brand-50 text-brand-700' : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900',
+                    )
+                  }
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </NavLink>
+              ))}
+              <NavLink
+                to={aboutItem.to}
+                onClick={() => setMenuOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium',
+                    isActive ? 'bg-brand-50 text-brand-700' : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900',
+                  )
+                }
+              >
+                <Info className="h-4 w-4" />
+                {aboutItem.label}
+              </NavLink>
+            </nav>
             <button
               onClick={handleLogout}
               className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50"
@@ -127,7 +171,7 @@ export default function Layout() {
         </div>
       )}
 
-      <main className="mx-auto max-w-6xl px-4 pb-24 pt-5 sm:px-6 md:pb-12 md:pt-8">
+      <main className="mx-auto min-w-0 max-w-6xl overflow-x-hidden px-4 pb-24 pt-5 sm:px-6 md:pb-12 md:pt-8">
         <Outlet />
       </main>
 

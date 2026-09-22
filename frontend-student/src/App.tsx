@@ -16,6 +16,7 @@ import CareerGPS from './pages/CareerGPS'
 import Opportunities from './pages/Opportunities'
 import OpportunityDetail from './pages/OpportunityDetail'
 import ProfilePage from './pages/ProfilePage'
+import AboutPage from './pages/AboutPage'
 
 declare global {
   interface Window {
@@ -86,7 +87,8 @@ function MaxLaunchBridge() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <div className="theme-student min-h-screen">
+      <BrowserRouter>
       <ToastProvider>
         <AuthProvider>
           <MaxLaunchBridge />
@@ -106,12 +108,14 @@ function App() {
                 <Route path="/opportunities" element={<Opportunities />} />
                 <Route path="/opportunities/:id" element={<OpportunityDetail />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/about" element={<AboutPage />} />
               </Route>
             </Route>
           </Routes>
         </AuthProvider>
       </ToastProvider>
-    </BrowserRouter>
+      </BrowserRouter>
+    </div>
   )
 }
 
