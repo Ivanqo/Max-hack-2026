@@ -95,3 +95,18 @@ htmlcov/
 # Docker
 .docker/
 *.log
+
+# Local environment overrides and secrets (keep checked-in examples)
+.env.*
+!.env.example
+!**/.env.example
+
+# Temporary validation, rendering, and test artifacts
+/tmp/
+/output/documents/render_qa_*/
+/output/documents/docx_render/
+**/test_*.sqlite3
+**/test_db.sqlite3
+coverage/
+playwright-report/
+test-results/

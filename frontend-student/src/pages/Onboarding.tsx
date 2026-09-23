@@ -175,7 +175,7 @@ export default function Onboarding() {
             <CheckCircle2 className="h-8 w-8" />
           </span>
           <h1 className="mt-5 text-xl font-bold text-ink-900">Ваш профиль готов</h1>
-          <p className="mt-2 text-sm text-ink-500">Строим ваш Career GPS…</p>
+          <p className="mt-2 text-sm text-ink-500">Строим ваш карьерный маршрут…</p>
         </div>
       </div>
     )

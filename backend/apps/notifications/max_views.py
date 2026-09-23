@@ -166,7 +166,7 @@ class MaxWebhookView(APIView):
             title='UniPath MAX',
             message=(
                 'Привет! UniPath MAX поможет собрать карьерный профиль, '
-                'построить Career GPS и найти подходящие стажировки и практики. '
+                'построить карьерный маршрут и найти подходящие стажировки и практики. '
                 'Открой мини-приложение, чтобы начать.'
             ),
             idempotency_key=f'max:bot_started:{event_id}',

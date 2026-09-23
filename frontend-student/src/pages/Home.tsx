@@ -38,7 +38,7 @@ export default function Home() {
     if (profile && !profile.profile.onboardingCompleted) {
       return {
         title: 'Завершите анкету',
-        description: 'Расскажите о себе, чтобы мы могли построить ваш Career GPS и подобрать возможности.',
+        description: 'Расскажите о себе, чтобы мы могли построить ваш карьерный маршрут и подобрать возможности.',
         cta: 'Пройти онбординг',
         to: '/onboarding',
       }
@@ -46,7 +46,7 @@ export default function Home() {
     if (profile && profile.skills.length < 2) {
       return {
         title: 'Добавьте навыки в профиль',
-        description: 'Ещё 2 навыка — и точность Career GPS и подбора возможностей заметно вырастет.',
+        description: 'Ещё 2 навыка — и точность карьерных рекомендаций заметно вырастет.',
         cta: 'Добавить навыки',
         to: '/profile',
       }
@@ -54,8 +54,8 @@ export default function Home() {
     if (profile && !profile.profile.careerGoal) {
       return {
         title: 'Выберите карьерную цель',
-        description: 'Career GPS покажет, чего не хватает до выбранной роли, и что делать дальше.',
-        cta: 'Открыть Career GPS',
+        description: 'Карьерный навигатор покажет, чего не хватает до выбранной роли и что делать дальше.',
+        cta: 'Открыть карьерный навигатор',
         to: '/career-gps',
       }
     }
@@ -100,7 +100,7 @@ export default function Home() {
               <div>
                 <p className="text-xs uppercase tracking-wide text-white/70">Готовность к цели</p>
                 <Link to="/career-gps" className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-white hover:underline">
-                  Открыть Career GPS <ArrowRight className="h-3.5 w-3.5" />
+                  Открыть карьерный навигатор <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </div>
             </div>

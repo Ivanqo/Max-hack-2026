@@ -4,7 +4,7 @@ import { Card } from '@/ui'
 
 const capabilities = [
   { to: '/home', icon: Sparkles, title: 'Личный маршрут', text: 'Главная собирает ваш прогресс и подсказывает следующий полезный шаг.' },
-  { to: '/career-gps', icon: Compass, title: 'Career GPS', text: 'Показывает готовность к цели и помогает понять, какие навыки развивать.' },
+  { to: '/career-gps', icon: Compass, title: 'Карьерный навигатор', text: 'Показывает готовность к цели и помогает понять, какие навыки развивать.' },
   { to: '/opportunities', icon: LayoutGrid, title: 'Возможности', text: 'Стажировки, проекты, хакатоны и события с персональным совпадением.' },
   { to: '/knowledge', icon: BookOpen, title: 'База знаний', text: 'Проверенные ответы о правилах, сервисах и возможностях университета.' },
   { to: '/profile', icon: UserRound, title: 'Профиль', text: 'Навыки, интересы и карьерная цель — основа точных рекомендаций.' },
@@ -21,7 +21,7 @@ export default function AboutPage() {
           <p className="text-sm font-medium text-white/75">О платформе</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">UniPath MAX помогает двигаться к своей карьере</h1>
           <p className="mt-3 max-w-xl text-sm leading-6 text-white/85">
-            Один понятный маршрут от интереса к следующему шагу: профиль, Career GPS, проверенные знания и возможности университета.
+            Один понятный маршрут от интереса к следующему шагу: профиль, карьерный навигатор, проверенные знания и возможности университета.
           </p>
         </div>
       </section>
@@ -52,7 +52,7 @@ export default function AboutPage() {
       <Card className="border-accent-200 bg-accent-50/60">
         <h2 className="font-semibold text-ink-900">Как получить точные рекомендации?</h2>
         <p className="mt-1.5 max-w-2xl text-sm leading-6 text-ink-600">
-          Заполните профиль, укажите интересы и навыки, а затем откройте Career GPS. Чем полнее ваш профиль, тем полезнее подбор возможностей.
+          Заполните профиль, укажите интересы и навыки, а затем откройте карьерный навигатор. Чем полнее ваш профиль, тем полезнее подбор возможностей.
         </p>
         <Link to="/profile" className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-800">
           Настроить профиль <ArrowRight className="h-4 w-4" />

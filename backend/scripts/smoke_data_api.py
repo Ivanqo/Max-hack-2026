@@ -53,6 +53,7 @@ class Smoke:
         self.admin_token = ""
         self.topic = f"SmokeTopic{int(time.time())}"
         self.opportunity_id = ""
+        self.subscription_id = ""
         self.university_id = ""
         self.institute_id = ""
         self.program_id = ""
@@ -69,10 +70,12 @@ class Smoke:
         self.admin_token = self.login(ADMIN, "admin")
         self.publish_matching_opportunity()
         self.verify_notification(expected_count=1)
+        self.open_published_opportunity()
         self.republish_without_duplicate()
         self.verify_notification(expected_count=1)
         self.knowledge_search()
         self.admin_analytics()
+        self.cleanup_test_data()
 
     def health(self) -> None:
         response = self.request("GET", "/api/health/")
@@ -195,13 +198,16 @@ class Smoke:
     def create_subscription(self) -> None:
         response = self.request(
             "POST",
-            "/api/student/subscriptions",
+            "/api/v1/subscriptions/",
             token=self.student_token,
             json={"topic": self.topic, "filters": {"topic": self.topic}, "active": True},
         )
         self.expect(response, 201, "create_subscription")
         if response.json().get("topic") != self.topic:
             raise SmokeFailure("subscription topic was not persisted")
+        self.subscription_id = str(response.json().get("id") or "")
+        if not self.subscription_id:
+            raise SmokeFailure("subscription creation did not return an id")
 
     def publish_matching_opportunity(self) -> None:
         response = self.request(
@@ -241,6 +247,19 @@ class Smoke:
         if statuses != {"simulated"}:
             raise SmokeFailure(f"expected delivery_status=simulated, got {sorted(statuses)}")
 
+    def open_published_opportunity(self) -> None:
+        response = self.request(
+            "GET",
+            f"/api/student/opportunities/{self.opportunity_id}",
+            token=self.student_token,
+        )
+        self.expect(response, 200, "open_published_opportunity")
+        opportunity = response.json()
+        if str(opportunity.get("id")) != self.opportunity_id:
+            raise SmokeFailure("opened opportunity does not match the notification")
+        if self.topic not in opportunity.get("requirements", []):
+            raise SmokeFailure("opened opportunity is not relevant to the student's subscription")
+
     def knowledge_search(self) -> None:
         response = self.request(
             "GET",
@@ -270,6 +289,22 @@ class Smoke:
         self.expect(response, 200, "admin_analytics")
         if "totalUsers" not in response.json():
             raise SmokeFailure("admin analytics response is missing totalUsers")
+
+    def cleanup_test_data(self) -> None:
+        if self.opportunity_id:
+            response = self.request(
+                "DELETE",
+                f"/api/admin/opportunities/{self.opportunity_id}",
+                token=self.admin_token,
+            )
+            self.expect(response, 204, "delete_test_opportunity")
+        if self.subscription_id:
+            response = self.request(
+                "DELETE",
+                f"/api/v1/subscriptions/{self.subscription_id}/",
+                token=self.student_token,
+            )
+            self.expect(response, 204, "delete_test_subscription")
 
     def opportunity_payload(self) -> dict[str, Any]:
         return {

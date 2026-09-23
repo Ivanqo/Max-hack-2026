@@ -122,7 +122,7 @@ export default function OpportunityDetail() {
             <p className="text-sm text-ink-500">Пробелов не найдено — вы соответствуете требованиям.</p>
           )}
           <Link to="/career-gps" className="mt-3 inline-block text-sm font-medium text-brand-600 hover:text-brand-700">
-            Разобрать в Career GPS →
+            Посмотреть карьерный маршрут →
           </Link>
         </Card>
       </div>

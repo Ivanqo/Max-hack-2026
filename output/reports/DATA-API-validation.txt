@@ -1,0 +1,6 @@
+Команда проверки:
+backend\.venv\Scripts\python.exe tmp\example-data-api-check\validate_data_api.py DATA-API.yaml --schema tmp\example-data-api-check\Example\DATA-API.schema.json --openapi openapi.yaml
+
+Результат:
+ПОДТВЕРЖДЕНИЕ файл DATA-API.yaml соответствует версии схемы 1.0
+Код завершения: 0

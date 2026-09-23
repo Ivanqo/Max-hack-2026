@@ -6,7 +6,7 @@ import { cn } from '@/ui'
 
 const navItems = [
   { to: '/home', label: 'Главная', icon: Home },
-  { to: '/career-gps', label: 'Career GPS', icon: Compass },
+  { to: '/career-gps', label: 'Карьерный навигатор', icon: Compass },
   { to: '/opportunities', label: 'Возможности', icon: LayoutGrid },
   { to: '/knowledge', label: 'База знаний', icon: BookOpen },
   { to: '/profile', label: 'Профиль', icon: User },

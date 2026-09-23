@@ -1,0 +1,7 @@
+Команда:
+backend\.venv\Scripts\python.exe backend\scripts\smoke_data_api.py --base-url http://localhost:18000
+
+Результат:
+PASS: DATA-API smoke scenario completed, including simulated notification dedupe.
+
+Проверено: публикация возможности администратором, уведомление подписанного студента, открытие опубликованной возможности. MAX_INTEGRATION_MODE=mock.

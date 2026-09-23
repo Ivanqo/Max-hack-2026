@@ -99,7 +99,7 @@ export const CareerRoles = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-ink-900">Карьерные роли</h1>
-          <p className="mt-1 text-sm text-ink-500">Целевые роли, навыки и требуемые уровни для Career GPS.</p>
+          <p className="mt-1 text-sm text-ink-500">Целевые роли, навыки и требуемые уровни для карьерного навигатора.</p>
         </div>
         <Button onClick={openCreate} leftIcon={<Plus className="h-4 w-4" />}>Добавить роль</Button>
       </div>
@@ -118,7 +118,7 @@ export const CareerRoles = () => {
         <EmptyState
           icon={<Compass className="h-6 w-6 text-ink-400" />}
           title={search ? 'Ничего не найдено' : 'Карьерных ролей пока нет'}
-          message={search ? undefined : 'Добавьте роль, чтобы студенты видели маршрут Career GPS.'}
+          message={search ? undefined : 'Добавьте роль, чтобы студенты видели маршрут карьерного навигатора.'}
           action={!search && <Button size="sm" onClick={openCreate} leftIcon={<Plus className="h-4 w-4" />}>Добавить роль</Button>}
         />
       ) : (
@@ -161,7 +161,7 @@ export const CareerRoles = () => {
           <Textarea label="Описание" required rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <Input
             label="Ключевые навыки"
-            hint="Через запятую — используются для расчёта готовности в Career GPS"
+            hint="Через запятую — используются для расчёта готовности в карьерном навигаторе"
             value={form.skillsText}
             onChange={(e) => setForm({ ...form, skillsText: e.target.value })}
             placeholder="Python, Django, SQL"

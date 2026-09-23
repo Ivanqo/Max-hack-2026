@@ -29,7 +29,7 @@ class InteractionEvent(models.Model):
         ('knowledge_no_answer', 'Knowledge No Answer'),
         ('opportunity_open', 'Opportunity Open'),
         ('opportunity_save', 'Opportunity Save'),
-        ('career_gps_open', 'Career GPS Open'),
+        ('career_gps_open', 'Открытие карьерного навигатора'),
         ('subscription_created', 'Subscription Created'),
     ]
 

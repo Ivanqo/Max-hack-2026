@@ -47,7 +47,7 @@ export default function CareerGPS() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-ink-900">Career GPS</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-ink-900">Карьерный навигатор</h1>
         <p className="mt-1 text-sm text-ink-500">Где вы сейчас, куда идёте и что нужно подтянуть, чтобы дойти быстрее.</p>
       </div>
 

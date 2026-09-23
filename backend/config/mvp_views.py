@@ -71,7 +71,7 @@ SKILL_LEVELS = {
 DEMO_COURSES = [
     {
         'id': 1,
-        'title': 'Career GPS Foundations',
+        'title': 'Основы карьерного планирования',
         'description': 'Learn how to map your skills to university career paths and opportunities.',
         'materials': [
             {'id': 1, 'title': 'Skills Map', 'type': 'article', 'content': 'List your strongest skills and connect them to roles.'},

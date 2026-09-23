@@ -194,7 +194,7 @@ export default function ProfilePage() {
             ))}
           </div>
         ) : (
-          <p className="rounded-xl bg-ink-50 p-4 text-sm text-ink-500">Добавьте навыки, чтобы улучшить Career GPS и подбор возможностей.</p>
+          <p className="rounded-xl bg-ink-50 p-4 text-sm text-ink-500">Добавьте навыки, чтобы улучшить карьерные рекомендации и подбор возможностей.</p>
         )}
       </Card>
 

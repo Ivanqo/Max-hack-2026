@@ -256,6 +256,85 @@ paths:
       responses:
         '201':
           description: Created subscription
+  /api/v1/subscriptions/:
+    get:
+      summary: List subscriptions for the authenticated student
+      parameters:
+        - in: query
+          name: topic
+          schema:
+            type: string
+        - in: query
+          name: active
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Student subscriptions
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      summary: Create a subscription for proactive opportunity notifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionRequest'
+      responses:
+        '201':
+          description: Created subscription
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /api/v1/subscriptions/{id}/:
+    get:
+      summary: Get one subscription owned by the authenticated student
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Subscription
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Replace a student subscription
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated subscription
+    patch:
+      summary: Update part of a student subscription
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated subscription
+    delete:
+      summary: Delete a student subscription
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Deleted subscription
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/notifications/:
     get:
       summary: List notifications for the current user
