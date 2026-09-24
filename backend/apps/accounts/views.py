@@ -6,6 +6,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
@@ -236,7 +237,9 @@ class HealthCheckView(APIView):
                 'status': 'ok',
                 'timestamp': timezone.now().isoformat(),
                 'service': 'UniPath MAX API',
-                'version': '1.0.0'
+                'version': '1.0.0',
+                'build_commit': getattr(settings, 'BUILD_COMMIT_SHA', '') or None,
+                'build_fingerprint': getattr(settings, 'BUILD_FINGERPRINT', '') or None,
             }, status=status.HTTP_200_OK)
 
         except Exception:

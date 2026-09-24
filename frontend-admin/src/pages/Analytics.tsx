@@ -1,10 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { Activity, Bookmark, Eye, Search, TrendingUp, Users } from 'lucide-react';
 import { fetchAnalytics } from '@/api/endpoints';
+import { useAuthUser } from '@/contexts/AuthContext';
+import { adminQueryKey } from '@/lib/adminQueryScope';
 import { Card, EmptyState, ErrorState, LoadingState, ProgressBar } from '@/ui';
 
 export const Analytics = () => {
-  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['admin-analytics'], queryFn: fetchAnalytics });
+  const user = useAuthUser();
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: adminQueryKey(user, 'analytics'), queryFn: fetchAnalytics });
 
   if (isLoading) return <LoadingState label="Загружаем аналитику…" />;
   if (isError || !data) return <ErrorState onRetry={() => refetch()} />;

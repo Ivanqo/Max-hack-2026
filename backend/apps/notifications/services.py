@@ -5,6 +5,7 @@ import logging
 from typing import Optional, Dict, Any
 from django.conf import settings
 from django.utils import timezone
+from apps.notifications.integrations.max.observability import log_max_event, new_correlation_id
 from .models import Notification
 from apps.subscriptions.models import Subscription
 from .integrations.max import MaxClient, MockMaxClient, RealMaxClient
@@ -71,19 +72,12 @@ class NotificationService:
                 defaults=defaults,
             )
             if not created:
-                logger.info(
-                    "Notification already exists for idempotency key %s - ID: %s",
-                    idempotency_key,
-                    notification.id,
-                )
+                logger.info("Notification already exists for the requested idempotency key")
                 return notification
         else:
             notification = Notification.objects.create(**defaults)
 
-        logger.info(
-            f"Notification created - ID: {notification.id}, "
-            f"Student: {student.id}, Title: {title}"
-        )
+        logger.info("Notification created")
 
         return notification
 
@@ -98,20 +92,30 @@ class NotificationService:
         Returns:
             bool: True if successfully sent, False otherwise
         """
+        correlation_id = new_correlation_id()
         if notification.delivery_status in [
             Notification.DeliveryStatus.SENT,
             Notification.DeliveryStatus.SIMULATED,
         ]:
-            logger.warning(
-                f"Notification {notification.id} already delivered, skipping"
+            log_max_event(
+                logger,
+                'max_notification_delivery',
+                correlation_id,
+                provider=notification.provider or 'max',
+                result='already_delivered',
+                stage='delivery',
             )
             return True
 
         # Check if MAX API is available
         if not self._client.is_available():
-            logger.warning(
-                f"MAX API unavailable for notification {notification.id}. "
-                "Notification marked as pending."
+            log_max_event(
+                logger,
+                'max_notification_delivery',
+                correlation_id,
+                provider='max',
+                result='unavailable',
+                stage='delivery',
             )
             return False
 
@@ -124,6 +128,7 @@ class NotificationService:
                 f'opportunity_{notification.opportunity.id}'
                 if notification.opportunity else 'notifications'
             ),
+            'correlation_id': correlation_id,
         }
 
         try:
@@ -136,8 +141,17 @@ class NotificationService:
                 metadata=metadata
             )
 
-            if result['success']:
-                if result.get('provider') == 'mock':
+            mode_is_mock = bool(getattr(settings, 'USE_MOCK_MAX_CLIENT', True))
+            returned_provider = result.get('provider') if isinstance(result, dict) else None
+            provider = 'mock' if mode_is_mock or returned_provider == 'mock' else (
+                'max' if returned_provider == 'max' else 'unknown'
+            )
+            delivered = bool(isinstance(result, dict) and result.get('success'))
+            if not mode_is_mock and provider != 'max':
+                delivered = False
+
+            if delivered:
+                if provider == 'mock':
                     notification.mark_as_simulated(
                         provider_message_id=result.get('message_id')
                     )
@@ -147,28 +161,40 @@ class NotificationService:
                         provider=result.get('provider', 'max'),
                     )
 
-                logger.info(
-                    f"Notification {notification.id} sent successfully. "
-                    f"MAX Message ID: {result.get('message_id')}"
+                log_max_event(
+                    logger,
+                    'max_notification_delivery',
+                    correlation_id,
+                    provider=provider,
+                    result='simulated' if provider == 'mock' else 'sent',
+                    stage='delivery',
                 )
                 return True
             else:
                 # Mark as failed
                 notification.mark_as_failed(result.get('error') or 'Delivery failed')
 
-                logger.error(
-                    f"Notification {notification.id} failed to send. "
-                    f"Error: {result.get('error')}"
+                log_max_event(
+                    logger,
+                    'max_notification_delivery',
+                    correlation_id,
+                    provider=provider,
+                    result='failed',
+                    stage='delivery',
                 )
                 return False
 
-        except Exception as e:
+        except Exception:
             # Handle unexpected errors gracefully
             notification.mark_as_failed('Unexpected delivery error')
 
-            logger.error(
-                f"Unexpected error sending notification {notification.id}: {str(e)}",
-                exc_info=True
+            log_max_event(
+                logger,
+                'max_notification_delivery',
+                correlation_id,
+                provider='max',
+                result='failed',
+                stage='delivery',
             )
             return False
 

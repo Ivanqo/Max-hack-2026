@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { LogIn, Sparkles } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAuthStore } from '@/stores/authStore'
+import { maxRoleDestination } from '@/lib/maxLaunch'
 import { Button, Input } from '@/ui'
 
 export default function LoginPage() {
@@ -20,24 +21,38 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(email, password)
+    } catch {
+      setError('Не удалось войти. Проверьте почту и пароль.')
+      setLoading(false)
+      return
+    }
+
+    try {
       const pendingInitData = sessionStorage.getItem('max-launch-pending')
       if (pendingInitData) {
         const { role } = await completeMaxLaunch(pendingInitData)
-        sessionStorage.setItem('max-launch-processed', pendingInitData)
+        const destination = maxRoleDestination(role)
+        if (!destination) throw new Error('Unsupported account role')
         sessionStorage.removeItem('max-launch-pending')
-        if (role !== 'student') {
+        if (destination === '/admin/') {
           window.location.replace('/admin/')
           return
         }
       }
       const role = useAuthStore.getState().user?.role
-      if (role && role !== 'student') {
+      const destination = role ? maxRoleDestination(role) : '/home'
+      if (destination === '/admin/') {
         window.location.replace('/admin/')
-      } else {
+      } else if (destination === '/home') {
         navigate('/home')
+      } else {
+        throw new Error('Unsupported account role')
       }
-    } catch {
-      setError('Не удалось войти. Проверьте почту и пароль.')
+    } catch (bindingError: any) {
+      const detail = bindingError?.response?.data?.detail
+      setError(typeof detail === 'string' && detail.trim()
+        ? `Вход выполнен, но MAX не удалось связать: ${detail}`
+        : 'Вход выполнен, но MAX не удалось связать. Повторите запуск из MAX или обратитесь к администратору.')
     } finally {
       setLoading(false)
     }

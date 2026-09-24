@@ -2,10 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { AlertCircle, BookOpen, Briefcase, Plus, Search, TrendingUp, Users } from 'lucide-react';
 import { fetchAnalytics } from '@/api/endpoints';
+import { useAuthUser } from '@/contexts/AuthContext';
+import { adminQueryKey } from '@/lib/adminQueryScope';
 import { Badge, Card, ErrorState, LoadingState } from '@/ui';
 
 export const Dashboard = () => {
-  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['admin-analytics'], queryFn: fetchAnalytics });
+  const user = useAuthUser();
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: adminQueryKey(user, 'analytics'), queryFn: fetchAnalytics });
 
   if (isLoading) return <LoadingState label="Загружаем панель…" />;
   if (isError || !data) return <ErrorState onRetry={() => refetch()} />;

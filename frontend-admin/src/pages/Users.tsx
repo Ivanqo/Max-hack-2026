@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, ShieldCheck, ShieldOff, Users as UsersIcon } from 'lucide-react';
 import { fetchUsers, setUserActive } from '@/api/endpoints';
+import { useAuthUser } from '@/contexts/AuthContext';
+import { adminQueryKey } from '@/lib/adminQueryScope';
 import { Badge, Card, EmptyState, ErrorState, LoadingState, useToast } from '@/ui';
 
 const roleLabels: Record<string, string> = {
@@ -16,11 +18,13 @@ const roleLabels: Record<string, string> = {
 
 export const Users = () => {
   const [search, setSearch] = useState('');
+  const user = useAuthUser();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const usersKey = adminQueryKey(user, 'users', search);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['admin-users', search],
+    queryKey: usersKey,
     queryFn: () => fetchUsers(search || undefined),
   });
 
@@ -28,7 +32,7 @@ export const Users = () => {
     mutationFn: ({ id, active }: { id: number; active: boolean }) => setUserActive(id, active),
     onSuccess: (_, vars) => {
       toast.success(vars.active ? 'Пользователь активирован' : 'Пользователь деактивирован');
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: adminQueryKey(user, 'users') });
     },
     onError: () => toast.error('Не удалось изменить статус пользователя'),
   });

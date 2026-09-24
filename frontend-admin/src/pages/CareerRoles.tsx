@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Compass, Edit, Plus, Search, Trash2, X } from 'lucide-react';
 import { CareerRoleFormValues, createCareerRole, deleteCareerRole, fetchCareerRoles, updateCareerRole } from '@/api/endpoints';
+import { useAuthUser } from '@/contexts/AuthContext';
+import { adminQueryKey } from '@/lib/adminQueryScope';
 import type { CareerRole, DemandLevel } from '@/types';
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Input, LoadingState, Select, Sheet, Switch, Textarea, useToast } from '@/ui';
 
@@ -47,9 +49,11 @@ function toPayload(form: FormState): CareerRoleFormValues {
 }
 
 export const CareerRoles = () => {
+  const user = useAuthUser();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['admin-career-roles'], queryFn: fetchCareerRoles });
+  const careerRolesKey = adminQueryKey(user, 'career-roles');
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: careerRolesKey, queryFn: fetchCareerRoles });
 
   const [search, setSearch] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -63,7 +67,7 @@ export const CareerRoles = () => {
     return q ? data.filter((r) => r.title.toLowerCase().includes(q)) : data;
   }, [data, search]);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-career-roles'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: careerRolesKey });
 
   const createMutation = useMutation({
     mutationFn: (payload: CareerRoleFormValues) => createCareerRole(payload),

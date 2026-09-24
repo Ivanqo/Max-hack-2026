@@ -6,6 +6,18 @@ from rest_framework import status
 User = get_user_model()
 
 
+@pytest.mark.django_db
+def test_health_endpoint_exposes_configured_build_commit(api_client, settings):
+    settings.BUILD_COMMIT_SHA = 'test-build-commit'
+    settings.BUILD_FINGERPRINT = 'test-source-fingerprint'
+
+    response = api_client.get('/api/health/')
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data['build_commit'] == 'test-build-commit'
+    assert response.data['build_fingerprint'] == 'test-source-fingerprint'
+
+
 @pytest.fixture
 def api_client():
     """Create an API client for testing."""

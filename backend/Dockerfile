@@ -29,11 +29,24 @@ COPY requirements.txt .
 
 # Development stage
 FROM base as development
+ARG BUILD_COMMIT_SHA=unknown
+ENV BUILD_COMMIT_SHA=${BUILD_COMMIT_SHA}
+LABEL org.opencontainers.image.revision=${BUILD_COMMIT_SHA}
 
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir debugpy watchdog
 
 COPY . .
+RUN find . -type f \
+      ! -path './.venv/*' \
+      ! -path '*/__pycache__/*' \
+      ! -path '*/.pytest_cache/*' \
+      ! -path './media/*' \
+      ! -path './staticfiles/*' \
+      ! -name '.env' \
+      ! -name 'db.sqlite3*' \
+      ! -name '*.pyc' \
+      -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d ' ' -f 1 > /app/BUILD_FINGERPRINT
 
 EXPOSE 8000
 
@@ -46,6 +59,9 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # Production stage
 FROM python:3.11-slim as production
+ARG BUILD_COMMIT_SHA=unknown
+ENV BUILD_COMMIT_SHA=${BUILD_COMMIT_SHA}
+LABEL org.opencontainers.image.revision=${BUILD_COMMIT_SHA}
 
 WORKDIR /app
 
@@ -74,6 +90,16 @@ COPY --from=builder /install /usr/local
 
 # Copy application code
 COPY . .
+RUN find . -type f \
+      ! -path './.venv/*' \
+      ! -path '*/__pycache__/*' \
+      ! -path '*/.pytest_cache/*' \
+      ! -path './media/*' \
+      ! -path './staticfiles/*' \
+      ! -name '.env' \
+      ! -name 'db.sqlite3*' \
+      ! -name '*.pyc' \
+      -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d ' ' -f 1 > /app/BUILD_FINGERPRINT
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app

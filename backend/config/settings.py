@@ -229,5 +229,12 @@ MAX_OPEN_APP_TARGET = os.getenv('MAX_OPEN_APP_TARGET', '')
 MAX_WEBAPP_BASE_URL = os.getenv('MAX_WEBAPP_BASE_URL', 'http://localhost:3000')
 MAX_INITDATA_MAX_AGE_SECONDS = int(os.getenv('MAX_INITDATA_MAX_AGE_SECONDS', '3600'))
 USE_MOCK_MAX_CLIENT = MAX_INTEGRATION_MODE != 'real'
+BUILD_COMMIT_SHA = os.getenv('BUILD_COMMIT_SHA', '').strip()
+if BUILD_COMMIT_SHA == 'unknown':
+    BUILD_COMMIT_SHA = ''
+try:
+    BUILD_FINGERPRINT = (BASE_DIR / 'BUILD_FINGERPRINT').read_text(encoding='ascii').strip()
+except OSError:
+    BUILD_FINGERPRINT = ''
 
 AUTO_SEED_DEMO = os.getenv('AUTO_SEED_DEMO', 'false').lower() == 'true'

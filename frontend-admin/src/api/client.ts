@@ -8,14 +8,13 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  let token = localStorage.getItem('adminToken');
-  if (!token) {
-    try {
-      token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token || null;
-    } catch {
-      token = null;
-    }
+  let sharedToken: string | null = null;
+  try {
+    sharedToken = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token || null;
+  } catch {
+    sharedToken = null;
   }
+  const token = sharedToken || localStorage.getItem('adminToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -28,6 +27,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('adminToken');
       localStorage.removeItem('auth-storage');
+      window.dispatchEvent(new Event('unipath-auth-invalidated'));
       window.location.href = '/admin/login';
     }
     return Promise.reject(error);

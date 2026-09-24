@@ -6,6 +6,7 @@ import re
 from typing import Dict, Any, Optional
 from django.conf import settings
 from .client import MaxClient
+from .urls import is_public_https_url
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ class RealMaxClient(MaxClient):
         if not self.api_key:
             logger.warning("MAX_BOT_TOKEN not configured")
 
-        logger.info(f"RealMaxClient initialized with URL: {self.api_url}")
+        logger.info("MAX API client initialized; endpoint configured=%s", bool(self.api_url))
 
     def send_notification(
         self,
@@ -74,7 +75,7 @@ class RealMaxClient(MaxClient):
             }
         max_user_id = str((metadata or {}).get('max_user_id') or '').strip()
         if not max_user_id:
-            logger.warning("Cannot send MAX message: student %s is not linked to MAX", student_id)
+            logger.warning("Cannot send MAX message: recipient is not linked")
             return {
                 'success': False,
                 'message_id': None,
@@ -114,11 +115,6 @@ class RealMaxClient(MaxClient):
             data = response.json()
             message_id = self._message_id(data)
 
-            logger.info(
-                f"Notification sent via MAX - ID: {message_id}, "
-                f"MAX user: {max_user_id}, Title: {title}"
-            )
-
             return {
                 'success': True,
                 'message_id': message_id,
@@ -127,7 +123,6 @@ class RealMaxClient(MaxClient):
             }
 
         except requests.exceptions.Timeout:
-            logger.error(f"MAX API timeout for student {student_id}")
             return {
                 'success': False,
                 'message_id': None,
@@ -135,7 +130,7 @@ class RealMaxClient(MaxClient):
             }
 
         except requests.exceptions.RequestException:
-            logger.exception("MAX API request failed for student %s", student_id)
+            logger.error("MAX API request failed; provider response details suppressed")
             return self._failure('MAX request failed')
 
     def get_notification_status(self, message_id: str) -> Dict[str, Any]:
@@ -217,8 +212,44 @@ class RealMaxClient(MaxClient):
                 'error': None,
             }
         except requests.exceptions.RequestException:
-            logger.exception("MAX webhook subscription request failed")
+            logger.error("MAX webhook subscription request failed; provider details suppressed")
             return self._failure('MAX subscription request failed')
+
+    def get_webhook_subscriptions(self) -> Dict[str, Any]:
+        """Read current webhook subscriptions without exposing credentials."""
+        if not self.api_url or not self.api_key:
+            return self._failure('MAX API is not configured')
+        requests = self._requests()
+        if requests is None:
+            return self._failure('requests package is not installed')
+        try:
+            response = requests.get(
+                f'{self.api_url}/subscriptions',
+                headers={'Authorization': self.api_key},
+                timeout=self.timeout,
+            )
+            if response.status_code == 401:
+                return self._failure('MAX authorization failed')
+            if response.status_code == 429:
+                return self._failure('MAX rate limit exceeded')
+            if response.status_code >= 500:
+                return self._failure('MAX provider unavailable')
+            response.raise_for_status()
+            data = response.json() if response.content else []
+            if isinstance(data, dict):
+                subscriptions = data.get('subscriptions', [])
+            else:
+                subscriptions = data
+            if not isinstance(subscriptions, list):
+                return self._failure('MAX subscription response is invalid')
+            return {
+                'success': True,
+                'subscriptions': subscriptions,
+                'error': None,
+            }
+        except requests.exceptions.RequestException:
+            logger.error("MAX webhook subscription inspection failed; provider details suppressed")
+            return self._failure('MAX subscription inspection failed')
 
     def _message_payload(
         self,
@@ -233,7 +264,7 @@ class RealMaxClient(MaxClient):
             'text': text,
             'attachments': [],
         }
-        if open_app_target:
+        if is_public_https_url(open_app_target):
             start_payload = metadata.get('webapp_payload') or (
                 f'opportunity_{opportunity_id}' if opportunity_id else 'notifications'
             )

@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Briefcase, Calendar, Edit, ExternalLink, Plus, Search, Trash2, X } from 'lucide-react';
 import { createOpportunity, deleteOpportunity, fetchOpportunities, OpportunityFormValues, updateOpportunity } from '@/api/endpoints';
+import { useAuthUser } from '@/contexts/AuthContext';
+import { adminQueryKey } from '@/lib/adminQueryScope';
 import type { Opportunity, OpportunityVerifiedStatus } from '@/types';
 import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Input, LoadingState, Select, Sheet, Switch, Textarea, useToast } from '@/ui';
 
@@ -92,9 +94,11 @@ function toPayload(form: FormState): OpportunityFormValues {
 }
 
 export function Opportunities() {
+  const user = useAuthUser();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['admin-opportunities'], queryFn: fetchOpportunities });
+  const opportunitiesKey = adminQueryKey(user, 'opportunities');
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: opportunitiesKey, queryFn: fetchOpportunities });
 
   const [search, setSearch] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -109,7 +113,7 @@ export function Opportunities() {
     return data.filter((o) => o.title.toLowerCase().includes(q) || o.company.toLowerCase().includes(q));
   }, [data, search]);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-opportunities'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: opportunitiesKey });
 
   const createMutation = useMutation({
     mutationFn: (payload: OpportunityFormValues) => createOpportunity(payload),

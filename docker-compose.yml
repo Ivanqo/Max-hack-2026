@@ -23,8 +23,11 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: ${BUILD_TARGET:-production}
+      args:
+        BUILD_COMMIT_SHA: ${BUILD_COMMIT_SHA:-unknown}
     container_name: max-hack-backend
     environment:
+      BUILD_COMMIT_SHA: ${BUILD_COMMIT_SHA:-unknown}
       DATABASE_URL: ${DATABASE_URL:-postgresql://maxhack_user:${DB_PASSWORD:-changeme123}@db:5432/maxhack}
       DB_NAME: ${DB_NAME:-maxhack}
       DB_USER: ${DB_USER:-maxhack_user}

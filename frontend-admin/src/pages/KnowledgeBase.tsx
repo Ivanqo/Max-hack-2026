@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, Edit, ExternalLink, Plus, Search, Trash2, X } from 'lucide-react';
 import { createKnowledgeItem, deleteKnowledgeItem, fetchKnowledgeItems, KnowledgeFormValues, updateKnowledgeItem } from '@/api/endpoints';
+import { useAuthUser } from '@/contexts/AuthContext';
+import { adminQueryKey } from '@/lib/adminQueryScope';
 import type { KnowledgeBase as KnowledgeBaseItem, VerifiedStatus } from '@/types';
 import { Badge, Button, Card, Chip, ConfirmDialog, EmptyState, ErrorState, Input, LoadingState, Select, Sheet, Switch, Textarea, useToast } from '@/ui';
 
@@ -60,9 +62,11 @@ function toPayload(form: FormState): KnowledgeFormValues {
 }
 
 export const KnowledgeBase = () => {
+  const user = useAuthUser();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['admin-knowledge'], queryFn: fetchKnowledgeItems });
+  const knowledgeKey = adminQueryKey(user, 'knowledge');
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: knowledgeKey, queryFn: fetchKnowledgeItems });
 
   const [search, setSearch] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -76,7 +80,7 @@ export const KnowledgeBase = () => {
     return q ? data.filter((a) => a.title.toLowerCase().includes(q)) : data;
   }, [data, search]);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-knowledge'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: knowledgeKey });
 
   const createMutation = useMutation({
     mutationFn: (payload: KnowledgeFormValues) => createKnowledgeItem(payload),
