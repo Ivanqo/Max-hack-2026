@@ -7,7 +7,7 @@ solution:
   name: "UniPath MAX"
 
 api:
-  baseUrl: "https://slacking-spotter-unsealed.ngrok-free.dev"
+  baseUrl: "https://188-120-251-143.sslip.io"
   openapi: "./openapi.yaml"
   defaultHeaders:
     Accept: "application/json"
@@ -65,7 +65,7 @@ checks:
 
   - id: "admin_publish_opportunity"
     name: "Публикация стажировки администратором"
-    description: "Создает тестовую стажировку с требованиями, совпадающими с подпиской BIM."
+    description: "Публикует тестовую стажировку и может отправить реальное сообщение MAX. Тестовые студент и администратор должны относиться к одному вузу; профиль студента должен быть связан с MAX."
     method: "POST"
     path: "/api/admin/opportunities"
     role: "admin"
@@ -126,6 +126,7 @@ checks:
 
   - id: "student_open_published_opportunity"
     name: "Открытие подходящей возможности студентом"
+    description: "Записывает interaction event открытия возможности, поэтому этот проверочный GET не является безопасным для повторного запуска."
     method: "GET"
     path: "/api/student/opportunities/{id}"
     role: "student"
@@ -138,7 +139,7 @@ checks:
       contentType: "application/json"
       requiredFields: ["id", "title"]
     timeoutMs: 10000
-    repeatable: true
+    repeatable: false
 
 cleanup:
   - id: "delete_test_subscription"

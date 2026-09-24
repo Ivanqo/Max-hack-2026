@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: API contract for the MAX end-to-end demo scenario.
 servers:
-  - url: http://localhost:8000
+  - url: https://188-120-251-143.sslip.io
 security:
   - bearerAuth: []
 paths:
@@ -190,6 +190,7 @@ paths:
   /api/student/opportunities:
     get:
       summary: Get ranked opportunities for current student
+      description: Requires a bearer JWT; matching is calculated for the authenticated user.
       parameters:
         - in: query
           name: type
@@ -202,9 +203,18 @@ paths:
       responses:
         '200':
           description: Matched opportunities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OpportunityResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/student/opportunities/{id}:
     get:
       summary: Open one opportunity with match score/reasons/gaps
+      description: Requires a bearer JWT; records an opportunity-open interaction.
       parameters:
         - in: path
           name: id
@@ -214,6 +224,12 @@ paths:
       responses:
         '200':
           description: Opportunity detail with match
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpportunityResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
   /api/student/opportunities/{id}/save:
@@ -275,6 +291,7 @@ paths:
           $ref: '#/components/responses/Unauthorized'
     post:
       summary: Create a subscription for proactive opportunity notifications
+      description: Requires a bearer JWT; DATA-API uses a student account and the subscription is owned by the authenticated user.
       requestBody:
         required: true
         content:
@@ -284,8 +301,14 @@ paths:
       responses:
         '201':
           description: Created subscription
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/v1/subscriptions/{id}/:
     get:
       summary: Get one subscription owned by the authenticated student
@@ -333,11 +356,14 @@ paths:
       responses:
         '204':
           description: Deleted subscription
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
   /api/v1/notifications/:
     get:
       summary: List notifications for the current user
+      description: Requires an allowed authenticated role; a student's results are restricted to their notifications and paginated.
       parameters:
         - in: query
           name: opportunity
@@ -352,6 +378,10 @@ paths:
       responses:
         '200':
           description: Paginated notifications with delivery_status; mock MAX delivery is marked simulated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPage'
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/knowledge/search:
@@ -376,6 +406,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
     post:
       summary: Admin create/publish an opportunity
+      description: Requires a bearer JWT with a manager role (editor, institute_admin, university_admin, organizer, or admin), or staff access. Publishing may send real MAX messages when production delivery is configured.
       requestBody:
         required: true
         content:
@@ -385,6 +416,14 @@ paths:
       responses:
         '201':
           description: Created opportunity; matching subscriptions create idempotent notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpportunityResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/admin/opportunities/{id}:
     put:
       summary: Admin update/publish an opportunity
@@ -408,6 +447,12 @@ paths:
       responses:
         '204':
           description: Deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/admin/analytics:
     get:
       summary: Admin analytics summary
@@ -524,6 +569,27 @@ components:
         active:
           type: boolean
           default: true
+    Subscription:
+      type: object
+      required: [id, topic]
+      properties:
+        id:
+          type: integer
+        topic:
+          type: string
+        filters:
+          type: object
+          additionalProperties: true
+        active:
+          type: boolean
+    OpportunityResult:
+      type: object
+      required: [id, title]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
     Notification:
       type: object
       properties:
@@ -545,6 +611,22 @@ components:
           type: string
           format: date-time
           nullable: true
+    NotificationPage:
+      type: object
+      required: [count, next, previous, results]
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          nullable: true
+        previous:
+          type: string
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
     AdminOpportunityRequest:
       type: object
       required: [title, company, description, type, location, requirements, status]
