@@ -7,10 +7,17 @@
     <meta name="theme-color" content="#ffffff" />
     <meta name="format-detection" content="telephone=no" />
     <title>UniPath MAX — карьерный навигатор</title>
-    <script id="max-bridge-sdk" src="https://st.max.ru/js/max-web-app.js"></script>
+    <script id="max-bridge-sdk" src="https://st.max.ru/js/max-web-app.js" async></script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main role="status" aria-live="polite" style="min-height:100vh;display:grid;place-content:center;gap:12px;padding:24px;text-align:center;font:16px system-ui,sans-serif;color:#17171f">
+        <span aria-hidden="true" style="width:28px;height:28px;margin:auto;border:3px solid #dbeafe;border-top-color:#195fa7;border-radius:50%;animation:unipath-spin .8s linear infinite"></span>
+        <strong>Запускаем UniPath MAX…</strong>
+        <span style="font-size:14px;color:#666">Подключаем приложение и проверяем запуск.</span>
+      </main>
+      <style>@keyframes unipath-spin{to{transform:rotate(360deg)}}</style>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

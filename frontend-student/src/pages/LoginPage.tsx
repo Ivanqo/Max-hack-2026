@@ -49,6 +49,7 @@ export default function LoginPage() {
         throw new Error('Unsupported account role')
       }
     } catch (bindingError: any) {
+      sessionStorage.removeItem('max-launch-pending')
       const detail = bindingError?.response?.data?.detail
       setError(typeof detail === 'string' && detail.trim()
         ? `Вход выполнен, но MAX не удалось связать: ${detail}`

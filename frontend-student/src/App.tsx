@@ -4,7 +4,13 @@ import { useNavigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { useAuthStore } from './stores/authStore'
-import { maxRoleDestination } from './lib/maxLaunch'
+import {
+  createMaxSdkLoader,
+  launchMaxApp,
+  MaxLaunchStartupError,
+  MaxWebAppBridge,
+  waitForMaxBridgeSdk,
+} from './lib/maxLaunch'
 import { ToastProvider } from './ui'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
@@ -21,9 +27,9 @@ import AboutPage from './pages/AboutPage'
 
 declare global {
   interface Window {
-    MAX?: { WebApp?: MaxWebApp }
-    WebApp?: MaxWebApp
-    Telegram?: { WebApp?: MaxWebApp }
+    MAX?: { WebApp?: MaxWebAppBridge }
+    WebApp?: MaxWebAppBridge
+    Telegram?: { WebApp?: MaxWebAppBridge }
     __MAX_DIAGNOSTICS__?: {
       bridgeAvailable: boolean
       initDataAvailable: boolean
@@ -32,65 +38,16 @@ declare global {
   }
 }
 
-type MaxWebApp = { initData?: string; ready?: () => void }
-type WebAppBridge = MaxWebApp | undefined
+type WebAppBridge = MaxWebAppBridge | undefined
 type LaunchState = 'loading' | 'error' | 'idle'
 
 function currentWebApp(): WebAppBridge {
   return window.MAX?.WebApp || window.WebApp || window.Telegram?.WebApp
 }
 
-function readLaunchInitData(webApp: WebAppBridge): string {
-  if (webApp?.initData) {
-    return webApp.initData
-  }
-
-  const candidates = [
-    window.location.hash.replace(/^#/, ''),
-    window.location.search.replace(/^\?/, ''),
-  ]
-  for (const candidate of candidates) {
-    if (!candidate) continue
-    const params = new URLSearchParams(candidate)
-    if (
-      params.has('WebAppData') ||
-      params.has('web_app_data') ||
-      params.has('initData') ||
-      params.has('init_data') ||
-      params.has('hash')
-    ) {
-      return candidate
-    }
-  }
-  return ''
-}
-
-let bridgeLoadPromise: Promise<void> | null = null
-
-function reloadMaxBridgeSdk(): Promise<void> {
-  if (currentWebApp()) return Promise.resolve()
-  if (bridgeLoadPromise) return bridgeLoadPromise
-
-  bridgeLoadPromise = new Promise((resolve, reject) => {
-    document.getElementById('max-bridge-sdk')?.remove()
-    const script = document.createElement('script')
-    script.id = 'max-bridge-sdk'
-    script.src = 'https://st.max.ru/js/max-web-app.js'
-    script.async = true
-    let timeout = 0
-    const finish = (error?: Error) => {
-      window.clearTimeout(timeout)
-      bridgeLoadPromise = null
-      if (error || !currentWebApp()) reject(error || new Error('bridge unavailable'))
-      else resolve()
-    }
-    timeout = window.setTimeout(() => finish(new Error('timeout')), 8000)
-    script.onload = () => finish()
-    script.onerror = () => finish(new Error('load failed'))
-    document.head.appendChild(script)
-  })
-  return bridgeLoadPromise
-}
+const loadMaxBridgeSdk = createMaxSdkLoader(() =>
+  waitForMaxBridgeSdk(currentWebApp, { timeoutMs: 15_000, pollIntervalMs: 100 }),
+)
 
 function publishLaunchDiagnostics(bridgeAvailable: boolean, initDataAvailable: boolean, launchState: string) {
   const diagnostics = { bridgeAvailable, initDataAvailable, launchState }
@@ -100,7 +57,15 @@ function publishLaunchDiagnostics(bridgeAvailable: boolean, initDataAvailable: b
 }
 
 function launchErrorMessage(error: any): string {
+  if (error instanceof MaxLaunchStartupError) {
+    return error.kind === 'sdk_timeout'
+      ? 'MAX Bridge не загрузился. Проверьте соединение и повторите запуск.'
+      : 'MAX не передал данные запуска. Закройте Mini App и откройте его снова из MAX.'
+  }
   const detail = error?.response?.data?.detail
+  if (error?.response?.status === 400 && detail === 'Invalid MAX launch context.') {
+    return 'MAX не подтвердил данные запуска. Закройте Mini App и откройте его снова из MAX.'
+  }
   if (typeof detail === 'string' && detail.trim()) return detail
   if (error?.response?.status === 409) {
     return 'Эта учётная запись уже связана с другим профилем MAX. Выйдите и войдите в нужную учётную запись.'
@@ -115,54 +80,55 @@ function MaxLaunchBridge() {
   const [message, setMessage] = useState('Подключаем UniPath MAX…')
   const [diagnostics, setDiagnostics] = useState({ bridgeAvailable: Boolean(currentWebApp()), initDataAvailable: false })
   const running = useRef(false)
+  const pendingInitData = useRef('')
 
   const launch = useCallback(async (retry = false) => {
     if (running.current) return
     running.current = true
+    pendingInitData.current = ''
+    // No success gate is persisted: a new MAX launch always reads fresh bridge state.
+    sessionStorage.removeItem('max-launch-pending')
     setState('loading')
     setMessage(retry ? 'Повторяем запуск…' : 'Подключаем UniPath MAX…')
     try {
-      if (!currentWebApp()) await reloadMaxBridgeSdk()
-      const webApp = currentWebApp()
-      const initData = readLaunchInitData(webApp)
-      const currentDiagnostics = { bridgeAvailable: Boolean(webApp), initDataAvailable: Boolean(initData) }
-      setDiagnostics(currentDiagnostics)
-      publishLaunchDiagnostics(currentDiagnostics.bridgeAvailable, currentDiagnostics.initDataAvailable, 'checking')
-      if (!initData) {
-        webApp?.ready?.()
-        setMessage(webApp
-          ? 'MAX не передал подписанные данные запуска. Закройте Mini App и откройте его снова из MAX.'
-          : 'Не удалось загрузить MAX Bridge. Проверьте интернет-соединение и повторите попытку.')
-        setState('error')
-        publishLaunchDiagnostics(currentDiagnostics.bridgeAvailable, false, 'error')
-        return
-      }
-
-      const { startParam, role } = await completeMaxLaunch(initData)
+      const result = await launchMaxApp({
+        getWebApp: currentWebApp,
+        loadSdk: loadMaxBridgeSdk,
+        completeLaunch: completeMaxLaunch,
+        timeoutMs: 8_000,
+        pollIntervalMs: 80,
+        onStage: (stage) => {
+          const webApp = currentWebApp()
+          const currentDiagnostics = {
+            bridgeAvailable: Boolean(webApp),
+            initDataAvailable: Boolean(webApp?.initData?.trim()),
+          }
+          setDiagnostics(currentDiagnostics)
+          publishLaunchDiagnostics(currentDiagnostics.bridgeAvailable, currentDiagnostics.initDataAvailable, stage)
+          if (stage === 'waiting_for_context') webApp?.ready?.()
+        },
+        onContext: ({ initData }) => {
+          pendingInitData.current = initData
+          // Retain only in memory until account_link_required; never log the signed payload.
+        },
+      })
       sessionStorage.removeItem('max-launch-pending')
-      webApp?.ready?.()
-      publishLaunchDiagnostics(true, true, 'authenticated')
-      const destination = maxRoleDestination(role)
-      if (!destination) throw new Error('Unsupported account role')
-      if (destination === '/admin/') {
+      if (result.destination === '/admin/') {
         window.location.replace('/admin/')
         return
       }
-      const match = /^opportunity_(\d+)$/.exec(startParam || '')
+      const match = /^opportunity_(\d+)$/.exec(result.startParam || '')
       if (match) navigate(`/opportunities?opportunity=${match[1]}`, { replace: true })
+      else navigate(result.destination, { replace: true })
       setState('idle')
     } catch (error: any) {
-      currentWebApp()?.ready?.()
-      const currentDiagnostics = {
-        bridgeAvailable: Boolean(currentWebApp()),
-        initDataAvailable: Boolean(readLaunchInitData(currentWebApp())),
-      }
+      const webApp = currentWebApp()
+      const currentDiagnostics = { bridgeAvailable: Boolean(webApp), initDataAvailable: Boolean(webApp?.initData?.trim()) }
       setDiagnostics(currentDiagnostics)
       publishLaunchDiagnostics(currentDiagnostics.bridgeAvailable, currentDiagnostics.initDataAvailable, 'error')
       if (error?.response?.data?.code === 'account_link_required') {
-        const initData = readLaunchInitData(currentWebApp())
-        if (initData) {
-          sessionStorage.setItem('max-launch-pending', initData)
+        if (pendingInitData.current) {
+          sessionStorage.setItem('max-launch-pending', pendingInitData.current)
           setState('idle')
           navigate('/login', { replace: true })
           return
@@ -190,7 +156,10 @@ function MaxLaunchBridge() {
       {state === 'error' && (
         <button
           className="mt-3 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
-          onClick={() => void launch(true)}
+          onClick={() => {
+            if (!currentWebApp()) window.location.reload()
+            else void launch(true)
+          }}
           type="button"
         >
           Повторить запуск

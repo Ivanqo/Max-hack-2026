@@ -72,7 +72,6 @@ export const useAuthStore = create<AuthState>()(
         queryClient.clear()
         set({ user: null, token: null })
         localStorage.removeItem('adminToken')
-        sessionStorage.removeItem('max-launch-processed')
         sessionStorage.removeItem('max-launch-pending')
         delete apiClient.defaults.headers.common['Authorization']
       },
