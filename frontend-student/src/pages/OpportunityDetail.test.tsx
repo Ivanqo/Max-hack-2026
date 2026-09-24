@@ -53,4 +53,16 @@ describe('OpportunityDetail', () => {
     expect(screen.getByText('Не хватает Docker')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /откликнуться/i })).toHaveAttribute('href', 'https://example.org/apply');
   });
+
+  it('offers a route back to opportunities when a launch target cannot be loaded', async () => {
+    vi.mocked(apiClient.get).mockRejectedValue(new Error('Not found'));
+
+    renderWithProviders(<OpportunityDetail />, {
+      route: { path: '/opportunities/:id', initialEntry: '/opportunities/999' },
+    });
+
+    expect(await screen.findByText('Не удалось загрузить возможность')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /все возможности/i })).toHaveAttribute('href', '/opportunities');
+    expect(screen.getByRole('button', { name: /повторить/i })).toBeInTheDocument();
+  });
 });

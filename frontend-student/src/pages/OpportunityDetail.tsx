@@ -26,7 +26,16 @@ export default function OpportunityDetail() {
   })
 
   if (isLoading) return <LoadingState label="Загружаем возможность…" />
-  if (isError || !opportunity) return <ErrorState title="Не удалось загрузить возможность" onRetry={() => refetch()} />
+  if (isError || !opportunity) {
+    return (
+      <div className="space-y-6 animate-fade-in pb-10">
+        <Link to="/opportunities" className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-500 hover:text-ink-800">
+          <ArrowLeft className="h-4 w-4" /> Все возможности
+        </Link>
+        <ErrorState title="Не удалось загрузить возможность" onRetry={() => refetch()} />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
