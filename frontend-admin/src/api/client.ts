@@ -8,7 +8,14 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('adminToken');
+  let token = localStorage.getItem('adminToken');
+  if (!token) {
+    try {
+      token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token || null;
+    } catch {
+      token = null;
+    }
+  }
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -20,7 +27,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('adminToken');
-      window.location.href = '/login';
+      localStorage.removeItem('auth-storage');
+      window.location.href = '/admin/login';
     }
     return Promise.reject(error);
   }

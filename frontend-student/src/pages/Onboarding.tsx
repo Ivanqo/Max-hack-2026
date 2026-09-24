@@ -10,6 +10,8 @@ import {
   fetchUniversities,
   submitOnboarding,
 } from '@/lib/endpoints'
+import { userQueryKey } from '@/lib/queryClient'
+import { useAuthStore } from '@/stores/authStore'
 import type { OnboardingPayload } from '@/types'
 import { Button, Chip, cn, ErrorState, LoadingState, Select, Textarea, useToast } from '@/ui'
 
@@ -113,25 +115,26 @@ function Footer({ onBack, onNext, nextLabel = 'Продолжить', nextDisabl
 }
 
 export default function Onboarding() {
+  const userId = useAuthStore((state) => state.user?.id ?? null)
   const navigate = useNavigate()
   const toast = useToast()
   const [step, setStep] = useState(0)
   const [submitted, setSubmitted] = useState(false)
   const { data, update } = useOnboardingState()
 
-  const universities = useQuery({ queryKey: ['universities'], queryFn: fetchUniversities })
+  const universities = useQuery({ queryKey: userQueryKey(userId, 'universities'), queryFn: fetchUniversities })
   const institutes = useQuery({
-    queryKey: ['institutes', data.universityId],
+    queryKey: userQueryKey(userId, 'institutes', data.universityId),
     queryFn: () => fetchInstitutes(data.universityId),
     enabled: Boolean(data.universityId),
   })
   const programs = useQuery({
-    queryKey: ['programs', data.instituteId],
+    queryKey: userQueryKey(userId, 'programs', data.instituteId),
     queryFn: () => fetchPrograms(data.instituteId),
     enabled: Boolean(data.instituteId),
   })
-  const interests = useQuery({ queryKey: ['interests'], queryFn: fetchInterests })
-  const skillOptions = useQuery({ queryKey: ['skill-options'], queryFn: fetchSkillOptions })
+  const interests = useQuery({ queryKey: userQueryKey(userId, 'interests'), queryFn: fetchInterests })
+  const skillOptions = useQuery({ queryKey: userQueryKey(userId, 'skill-options'), queryFn: fetchSkillOptions })
 
   // Preselect a single university automatically for a smoother demo flow.
   useEffect(() => {

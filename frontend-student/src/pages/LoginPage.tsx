@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LogIn, Sparkles } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAuthStore } from '@/stores/authStore'
 import { Button, Input } from '@/ui'
 
 export default function LoginPage() {
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
+  const completeMaxLaunch = useAuthStore((state) => state.completeMaxLaunch)
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -18,7 +20,22 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(email, password)
-      navigate('/home')
+      const pendingInitData = sessionStorage.getItem('max-launch-pending')
+      if (pendingInitData) {
+        const { role } = await completeMaxLaunch(pendingInitData)
+        sessionStorage.setItem('max-launch-processed', pendingInitData)
+        sessionStorage.removeItem('max-launch-pending')
+        if (role !== 'student') {
+          window.location.replace('/admin/')
+          return
+        }
+      }
+      const role = useAuthStore.getState().user?.role
+      if (role && role !== 'student') {
+        window.location.replace('/admin/')
+      } else {
+        navigate('/home')
+      }
     } catch {
       setError('Не удалось войти. Проверьте почту и пароль.')
     } finally {

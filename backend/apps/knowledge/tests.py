@@ -69,3 +69,70 @@ class KnowledgeSearchServiceTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn('Подайте заявление', str(response.data))
+
+    def test_mai_browse_and_detail_do_not_return_north_tech_material(self):
+        north_private = KnowledgeItem.objects.create(
+            university='North Tech University',
+            title='North Tech private practice rules',
+            content='This material is only for North Tech University students.',
+            responsible_unit='North Study Office',
+            verified_status='verified',
+            published=True,
+        )
+        mai_student = self.other_student
+        mai_student.university = 'МАИ'
+        mai_student.save(update_fields=['university'])
+        mai_material = KnowledgeItem.objects.create(
+            university='МАИ',
+            title='Правила практики МАИ',
+            content='Материал для студентов МАИ.',
+            verified_status='verified',
+            published=True,
+        )
+        client = APIClient()
+        client.force_authenticate(mai_student)
+
+        listing = client.get('/api/knowledge')
+        foreign_detail = client.get(f'/api/knowledge/{north_private.id}')
+        own_detail = client.get(f'/api/knowledge/{mai_material.id}')
+
+        self.assertEqual(listing.status_code, 200)
+        self.assertEqual([item['id'] for item in listing.data], [str(mai_material.id)])
+        self.assertEqual(foreign_detail.status_code, 404)
+        self.assertEqual(own_detail.status_code, 200)
+
+    def test_seed_preserves_north_private_record_under_its_established_owner(self):
+        item = KnowledgeItem.objects.create(
+            university='North Tech University',
+            title='North Tech private practice rules',
+            content='For North Tech University only.',
+            responsible_unit='North Study Office',
+            verified_status='verified',
+            published=True,
+        )
+
+        from apps.accounts.management.commands.seed_demo import Command
+        Command()._rename_university_scope(
+            ['North Tech University'], 'МАИ',
+        )
+
+        item.refresh_from_db()
+        self.assertEqual(item.university, 'North Tech University')
+        self.assertEqual(item.content, 'For North Tech University only.')
+
+    def test_seed_restores_known_north_private_item_previously_mislabeled_as_mai(self):
+        item = KnowledgeItem.objects.create(
+            university='МАИ',
+            title='North Tech private practice rules',
+            content='This material is only for North Tech University.',
+            responsible_unit='North Study Office',
+            verified_status='verified',
+            published=True,
+        )
+
+        from apps.accounts.management.commands.seed_demo import Command
+        Command()._rename_university_scope(['North Tech University'], 'МАИ')
+
+        item.refresh_from_db()
+        self.assertEqual(item.university, 'North Tech University')
+        self.assertEqual(item.content, 'This material is only for North Tech University.')

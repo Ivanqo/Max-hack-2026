@@ -2,16 +2,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Bookmark, BookmarkCheck, Calendar, ExternalLink, MapPin } from 'lucide-react'
 import { fetchOpportunityDetail, saveOpportunity, unsaveOpportunity } from '@/lib/endpoints'
+import { userQueryKey } from '@/lib/queryClient'
+import { useAuthStore } from '@/stores/authStore'
 import { opportunityTypeLabels, formatDate } from '@/lib/labels'
 import { Badge, Button, Card, ErrorState, LoadingState, ReadinessRing, useToast } from '@/ui'
 
 export default function OpportunityDetail() {
+  const userId = useAuthStore((state) => state.user?.id ?? null)
   const { id = '' } = useParams()
   const toast = useToast()
   const queryClient = useQueryClient()
 
   const { data: opportunity, isLoading, isError, refetch } = useQuery({
-    queryKey: ['opportunity', id],
+    queryKey: userQueryKey(userId, 'opportunity', id),
     queryFn: () => fetchOpportunityDetail(id),
   })
 
@@ -19,8 +22,8 @@ export default function OpportunityDetail() {
     mutationFn: () => (opportunity?.isSaved ? unsaveOpportunity(id) : saveOpportunity(id)),
     onSuccess: () => {
       toast.success(opportunity?.isSaved ? 'Убрано из сохранённого' : 'Сохранено')
-      queryClient.invalidateQueries({ queryKey: ['opportunity', id] })
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+      queryClient.invalidateQueries({ queryKey: userQueryKey(userId, 'opportunity', id) })
+      queryClient.invalidateQueries({ queryKey: userQueryKey(userId, 'opportunities') })
     },
     onError: () => toast.error('Не удалось сохранить возможность'),
   })

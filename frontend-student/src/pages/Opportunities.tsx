@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Bell, Bookmark, BookmarkCheck, Calendar, Search, SlidersHorizontal, X } from 'lucide-react'
 import { createSubscription, fetchOpportunities, saveOpportunity, unsaveOpportunity } from '@/lib/endpoints'
+import { userQueryKey } from '@/lib/queryClient'
+import { useAuthStore } from '@/stores/authStore'
 import { opportunityTypeOptions, opportunityTypeLabels, daysUntil, matchTone } from '@/lib/labels'
 import { Badge, Button, Card, Chip, EmptyState, ErrorState, Input, LoadingState, Sheet, useToast } from '@/ui'
 import type { Opportunity } from '@/types'
@@ -85,6 +87,7 @@ function OpportunityCard({ opportunity, onToggleSave, saving }: { opportunity: O
 }
 
 export default function Opportunities() {
+  const userId = useAuthStore((state) => state.user?.id ?? null)
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const toast = useToast()
@@ -105,21 +108,22 @@ export default function Opportunities() {
 
   const filters = useMemo(() => ({ search: debouncedSearch, type, minMatch }), [debouncedSearch, type, minMatch])
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['opportunities', filters],
+    queryKey: userQueryKey(userId, 'opportunities', filters),
     queryFn: () => fetchOpportunities(filters),
   })
 
   const saveMutation = useMutation({
     mutationFn: (o: Opportunity) => (o.isSaved ? unsaveOpportunity(o.id) : saveOpportunity(o.id)),
     onMutate: async (o) => {
-      await queryClient.cancelQueries({ queryKey: ['opportunities', filters] })
-      queryClient.setQueryData<Opportunity[]>(['opportunities', filters], (old) =>
+      const opportunitiesKey = userQueryKey(userId, 'opportunities', filters)
+      await queryClient.cancelQueries({ queryKey: opportunitiesKey })
+      queryClient.setQueryData<Opportunity[]>(opportunitiesKey, (old) =>
         old?.map((item) => (item.id === o.id ? { ...item, isSaved: !item.isSaved } : item)),
       )
     },
     onError: () => toast.error('Не удалось сохранить возможность', 'Попробуйте ещё раз.'),
     onSuccess: (_, o) => toast.success(o.isSaved ? 'Убрано из сохранённого' : 'Сохранено'),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunities'] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: userQueryKey(userId, 'opportunities') }),
   })
 
   const subscribeMutation = useMutation({
@@ -127,7 +131,7 @@ export default function Opportunities() {
     onSuccess: () => {
       toast.success('Подписка создана', 'Мы пришлём уведомление в MAX, когда появится что-то подходящее.')
       setSubscribeOpen(false)
-      queryClient.invalidateQueries({ queryKey: ['subscriptions'] })
+      queryClient.invalidateQueries({ queryKey: userQueryKey(userId, 'subscriptions') })
     },
     onError: () => toast.error('Не удалось создать подписку'),
   })

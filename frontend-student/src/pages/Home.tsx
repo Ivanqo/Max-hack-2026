@@ -14,6 +14,7 @@ import { fetchCareerGpsSummary, fetchOpportunities, fetchStudentProfile, fetchSu
 import { Badge, Card, EmptyState, ErrorState, ReadinessRing, Skeleton } from '@/ui'
 import { useAuth } from '@/contexts/AuthContext'
 import { opportunityTypeLabels } from '@/lib/labels'
+import { userQueryKey } from '@/lib/queryClient'
 
 function greeting() {
   const hour = new Date().getHours()
@@ -25,11 +26,12 @@ function greeting() {
 
 export default function Home() {
   const { user } = useAuth()
+  const userId = user?.id ?? null
 
-  const profileQuery = useQuery({ queryKey: ['student-profile'], queryFn: fetchStudentProfile })
-  const gpsQuery = useQuery({ queryKey: ['career-gps-summary'], queryFn: fetchCareerGpsSummary })
-  const opportunitiesQuery = useQuery({ queryKey: ['opportunities', {}], queryFn: () => fetchOpportunities() })
-  const subscriptionsQuery = useQuery({ queryKey: ['subscriptions'], queryFn: fetchSubscriptions })
+  const profileQuery = useQuery({ queryKey: userQueryKey(userId, 'student-profile'), queryFn: fetchStudentProfile })
+  const gpsQuery = useQuery({ queryKey: userQueryKey(userId, 'career-gps-summary'), queryFn: fetchCareerGpsSummary })
+  const opportunitiesQuery = useQuery({ queryKey: userQueryKey(userId, 'opportunities', {}), queryFn: () => fetchOpportunities() })
+  const subscriptionsQuery = useQuery({ queryKey: userQueryKey(userId, 'subscriptions'), queryFn: fetchSubscriptions })
 
   const profile = profileQuery.data
   const firstName = (profile?.user.firstName || user?.name || '').split(' ')[0]

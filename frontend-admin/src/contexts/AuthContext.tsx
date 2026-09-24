@@ -23,17 +23,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('adminToken');
+      const token = readSharedToken() || localStorage.getItem('adminToken');
       if (token) {
         try {
           const response = await api.get('/v1/accounts/me/');
           if (MANAGER_ROLES.includes(response.data.role)) {
             setUser(response.data);
+          } else if (response.data.role === 'student') {
+            window.location.replace('/');
+            return;
           } else {
             localStorage.removeItem('adminToken');
+            localStorage.removeItem('auth-storage');
           }
         } catch (error) {
           localStorage.removeItem('adminToken');
+          localStorage.removeItem('auth-storage');
         }
       }
       setLoading(false);
@@ -51,11 +56,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
 
     localStorage.setItem('adminToken', token);
+    localStorage.setItem('auth-storage', JSON.stringify({
+      state: { token, user: userData },
+      version: 0,
+    }));
     setUser(userData);
   };
 
   const logout = () => {
     localStorage.removeItem('adminToken');
+    localStorage.removeItem('auth-storage');
     setUser(null);
   };
 
@@ -65,3 +75,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     </AuthContext.Provider>
   );
 };
+
+function readSharedToken() {
+  try {
+    return JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token || null;
+  } catch {
+    return null;
+  }
+}

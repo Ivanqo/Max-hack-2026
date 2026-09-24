@@ -19,6 +19,8 @@ from apps.universities.models import University
 DEMO_PASSWORD = 'demo12345'
 PRIMARY_UNIVERSITY = 'НИУ МГСУ'
 SECONDARY_UNIVERSITY = 'МАИ'
+LEGACY_NORTH_UNIVERSITY = 'North Tech University'
+NORTH_PRIVATE_KNOWLEDGE_TITLE = 'North Tech private practice rules'
 
 LEGACY_PRIMARY_UNIVERSITIES = ['Demo University']
 LEGACY_SECONDARY_UNIVERSITIES = ['North Tech University']
@@ -110,8 +112,21 @@ class Command(BaseCommand):
         for old_name in old_names:
             if old_name == new_name:
                 continue
-            for model in [User, StudentProfile, Skill, CareerRole, Opportunity, KnowledgeItem, InteractionEvent, AuditLog]:
+            models = [User, StudentProfile, Skill, CareerRole, Opportunity, InteractionEvent, AuditLog]
+            # North Tech is a separate legacy tenant, not the current MAI tenant.
+            # Its private knowledge must retain its original scope.
+            if old_name != LEGACY_NORTH_UNIVERSITY:
+                models.append(KnowledgeItem)
+            for model in models:
                 model.objects.filter(university=old_name).update(university=new_name)
+
+        # An earlier seed version reassigned this explicitly North Tech-only
+        # record while renaming the legacy tenant. Restore its known owner and
+        # visibility without changing or deleting the content itself.
+        KnowledgeItem.objects.filter(
+            university=SECONDARY_UNIVERSITY,
+            title=NORTH_PRIVATE_KNOWLEDGE_TITLE,
+        ).update(university=LEGACY_NORTH_UNIVERSITY)
 
     def _cleanup_legacy_seed_rows(self):
         CareerRole.objects.filter(name__in=LEGACY_ROLE_NAMES).delete()

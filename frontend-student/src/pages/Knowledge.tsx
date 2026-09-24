@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { BookOpen, CheckCircle2, LifeBuoy, Search } from 'lucide-react'
 import { fetchKnowledgeList, searchKnowledge } from '@/lib/endpoints'
+import { userQueryKey } from '@/lib/queryClient'
+import { useAuthStore } from '@/stores/authStore'
 import { Badge, Chip, EmptyState, ErrorState, LoadingState, Skeleton } from '@/ui'
 import type { KnowledgeItem } from '@/types'
 
@@ -40,19 +42,20 @@ function KnowledgeCard({ item }: { item: KnowledgeItem }) {
 }
 
 export default function Knowledge() {
+  const userId = useAuthStore((state) => state.user?.id ?? null)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<string | null>(null)
   const debouncedQuery = useDebounced(query)
   const isSearching = debouncedQuery.trim().length > 0
 
   const searchQuery = useQuery({
-    queryKey: ['knowledge-search', debouncedQuery],
+    queryKey: userQueryKey(userId, 'knowledge-search', debouncedQuery),
     queryFn: () => searchKnowledge(debouncedQuery),
     enabled: isSearching,
   })
 
   const browseQuery = useQuery({
-    queryKey: ['knowledge-list'],
+    queryKey: userQueryKey(userId, 'knowledge-list'),
     queryFn: fetchKnowledgeList,
     enabled: !isSearching,
   })

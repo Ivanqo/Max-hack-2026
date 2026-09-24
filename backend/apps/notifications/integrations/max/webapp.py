@@ -117,7 +117,9 @@ def _verify_hash(params: dict[str, str], supplied_hash: str) -> None:
 def _verify_auth_date(params: dict[str, str]) -> None:
     auth_date = _safe_int(params.get('auth_date'))
     if not auth_date:
-        return
+        raise MaxInitDataError('MAX auth date is missing or invalid')
+    if auth_date > int(time.time()) + 30:
+        raise MaxInitDataError('MAX auth date is in the future')
     max_age = getattr(settings, 'MAX_INITDATA_MAX_AGE_SECONDS', 86400)
     if max_age > 0 and time.time() - auth_date > max_age:
         raise MaxInitDataError('MAX initData is expired')

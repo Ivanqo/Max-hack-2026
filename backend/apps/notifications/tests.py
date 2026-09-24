@@ -3,6 +3,7 @@ import hmac
 import json
 import time
 from urllib.parse import urlencode
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -173,6 +174,22 @@ class TestRealMaxClient(TestCase):
         self.assertEqual(fake.last_payload['attachments'][0]['payload']['buttons'][0][0]['type'], 'open_app')
         self.assertEqual(fake.last_payload['attachments'][0]['payload']['buttons'][0][0]['web_app'], 'https://max.ru/unipath_bot')
 
+    @override_settings(MAX_OPEN_APP_TARGET='https://max.ru/unipath_bot')
+    def test_welcome_message_can_open_the_public_mini_app(self):
+        fake = FakeRequests(FakeResponse(200, {'message': {'mid': 'welcome-1'}}))
+        result = self._client(fake).send_notification(
+            student_id='max-bot-welcome',
+            title='UniPath MAX',
+            message='Открой мини-приложение, чтобы начать.',
+            metadata={'max_user_id': 'max-welcome-1', 'webapp_payload': 'home'},
+        )
+
+        self.assertTrue(result['success'])
+        button = fake.last_payload['attachments'][0]['payload']['buttons'][0][0]
+        self.assertEqual(button['type'], 'open_app')
+        self.assertEqual(button['payload'], 'home')
+        self.assertEqual(button['web_app'], 'https://max.ru/unipath_bot')
+
     @override_settings(MAX_OPEN_APP_TARGET='')
     def test_real_client_omits_open_app_button_without_target(self):
         fake = FakeRequests(FakeResponse(200, {'message': {'mid': 'm-2'}}))
@@ -249,6 +266,50 @@ class MaxWebhookTest(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    @patch('apps.notifications.max_views.get_notification_service')
+    def test_bot_started_sends_welcome_with_open_app_payload_once(self, get_service):
+        client_adapter = Mock()
+        get_service.return_value.get_client.return_value = client_adapter
+        client = APIClient()
+        payload = {
+            'update_id': 'started-1',
+            'update_type': 'bot_started',
+            'timestamp': int(time.time() * 1000),
+            'chat_id': 12345,
+            'user': {'user_id': 12345, 'first_name': 'Student'},
+        }
+
+        first = client.post(
+            '/api/max/webhook/', payload, format='json',
+            HTTP_X_MAX_BOT_API_SECRET='secret',
+        )
+        duplicate = client.post(
+            '/api/max/webhook/', payload, format='json',
+            HTTP_X_MAX_BOT_API_SECRET='secret',
+        )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertFalse(first.data['duplicate'])
+        self.assertTrue(duplicate.data['duplicate'])
+        client_adapter.send_notification.assert_called_once()
+        kwargs = client_adapter.send_notification.call_args.kwargs
+        self.assertEqual(kwargs['metadata']['max_user_id'], '12345')
+        self.assertEqual(kwargs['metadata']['webapp_payload'], 'home')
+        self.assertIn('Открой мини-приложение', kwargs['message'])
+        self.assertFalse(get_user_model().objects.filter(max_user_id='12345').exists())
+
+    @patch('apps.notifications.max_views.get_notification_service')
+    def test_non_start_event_does_not_send_welcome(self, get_service):
+        response = APIClient().post(
+            '/api/max/webhook/',
+            {'update_id': 'message-1', 'update_type': 'message_created', 'user': {'user_id': 9}},
+            format='json',
+            HTTP_X_MAX_BOT_API_SECRET='secret',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        get_service.assert_not_called()
+
 
 @override_settings(
     MAX_BOT_TOKEN='test-token',
@@ -256,27 +317,95 @@ class MaxWebhookTest(TestCase):
     MAX_INITDATA_MAX_AGE_SECONDS=86400,
 )
 class MaxLaunchTest(TestCase):
-    def test_valid_init_data_links_max_user_to_local_student(self):
+    def setUp(self):
+        User = get_user_model()
+        self.student = User.objects.create_user(
+            email='mai-student@test.local', password='pass12345',
+            role='student', university='МАИ',
+        )
+        self.admin = User.objects.create_user(
+            email='mgsu-admin@test.local', password='pass12345',
+            role='admin', university='НИУ МГСУ',
+        )
+
+    def _launch_as(self, user, init_data):
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client.post('/api/max/launch/', {'initData': init_data}, format='json')
+
+    def test_valid_init_data_links_max_profile_to_existing_student(self):
         init_data = self._signed_init_data({
             'auth_date': str(int(time.time())),
             'user': json.dumps({'id': 12345, 'first_name': 'Max', 'last_name': 'Student'}),
             'start_param': 'opportunity_7',
         })
 
-        response = APIClient().post('/api/max/launch/', {'initData': init_data}, format='json')
+        response = self._launch_as(self.student, init_data)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['max']['max_user_id'], '12345')
-        user = get_user_model().objects.get(max_user_id='12345')
-        self.assertEqual(user.role, 'student')
-        self.assertFalse(user.is_staff)
+        self.assertEqual(response.data['user']['id'], self.student.id)
+        self.assertEqual(response.data['user']['role'], 'student')
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.max_user_id, '12345')
+        self.assertEqual(get_user_model().objects.filter(max_user_id='12345').count(), 1)
+
+    def test_valid_init_data_links_max_profile_to_existing_admin(self):
+        init_data = self._signed_init_data({
+            'auth_date': str(int(time.time())),
+            'user': json.dumps({'id': 54321, 'first_name': 'Max', 'last_name': 'Admin'}),
+        })
+
+        response = self._launch_as(self.admin, init_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['user']['id'], self.admin.id)
+        self.assertEqual(response.data['user']['role'], 'admin')
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.max_user_id, '54321')
+
+    def test_unlinked_anonymous_launch_requires_existing_account(self):
+        init_data = self._signed_init_data({
+            'auth_date': str(int(time.time())),
+            'user': json.dumps({'id': 12346}),
+        })
+
+        response = APIClient().post('/api/max/launch/', {'initData': init_data}, format='json')
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data['code'], 'account_link_required')
+        self.assertFalse(get_user_model().objects.filter(max_user_id='12346').exists())
+
+    def test_max_id_cannot_be_rebound_to_another_account(self):
+        init_data = self._signed_init_data({
+            'auth_date': str(int(time.time())),
+            'user': json.dumps({'id': 12347}),
+        })
+        first = self._launch_as(self.student, init_data)
+        second = self._launch_as(self.admin, init_data)
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 409)
+        self.admin.refresh_from_db()
+        self.assertIsNone(self.admin.max_user_id)
+        self.assertEqual(get_user_model().objects.filter(max_user_id='12347').count(), 1)
+
+    def test_existing_account_link_cannot_be_silently_replaced(self):
+        self.student.max_user_id = '12348'
+        self.student.save(update_fields=['max_user_id'])
+        init_data = self._signed_init_data({
+            'auth_date': str(int(time.time())),
+            'user': json.dumps({'id': 12349}),
+        })
+
+        response = self._launch_as(self.student, init_data)
+
+        self.assertEqual(response.status_code, 409)
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.max_user_id, '12348')
 
     def test_invalid_init_data_is_rejected(self):
-        response = APIClient().post(
-            '/api/max/launch/',
-            {'initData': 'user=%7B%22id%22%3A1%7D&hash=bad'},
-            format='json',
-        )
+        response = self._launch_as(self.student, 'user=%7B%22id%22%3A1%7D&hash=bad')
         self.assertEqual(response.status_code, 400)
 
     def test_nested_webappdata_fragment_is_accepted(self):
@@ -285,11 +414,7 @@ class MaxLaunchTest(TestCase):
             'user': json.dumps({'id': 54321, 'first_name': 'Nested'}),
             'start_param': 'opportunity_99',
         })
-        response = APIClient().post(
-            '/api/max/launch/',
-            {'initData': '#' + urlencode({'WebAppData': signed})},
-            format='json',
-        )
+        response = self._launch_as(self.student, '#' + urlencode({'WebAppData': signed}))
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['max']['max_user_id'], '54321')
@@ -300,18 +425,16 @@ class MaxLaunchTest(TestCase):
             'auth_date': str(int(time.time())),
             'user': json.dumps({'id': 11111, 'first_name': 'Duplicate'}),
         })
-        response = APIClient().post(
-            '/api/max/launch/',
-            {'initData': '#' + urlencode({'WebAppData': signed}) + '&' + urlencode({'WebAppData': signed})},
-            format='json',
+        response = self._launch_as(
+            self.student,
+            '#' + urlencode({'WebAppData': signed}) + '&' + urlencode({'WebAppData': signed}),
         )
         self.assertEqual(response.status_code, 400)
 
     def test_duplicate_init_data_fields_are_rejected(self):
-        response = APIClient().post(
-            '/api/max/launch/',
-            {'initData': 'user=%7B%22id%22%3A1%7D&user=%7B%22id%22%3A2%7D&hash=bad'},
-            format='json',
+        response = self._launch_as(
+            self.student,
+            'user=%7B%22id%22%3A1%7D&user=%7B%22id%22%3A2%7D&hash=bad',
         )
         self.assertEqual(response.status_code, 400)
 
@@ -320,3 +443,19 @@ class MaxLaunchTest(TestCase):
         secret = hmac.new(b'WebAppData', b'test-token', hashlib.sha256).digest()
         signature = hmac.new(secret, data_check.encode(), hashlib.sha256).hexdigest()
         return urlencode({**params, 'hash': signature})
+
+
+@override_settings(MAX_INTEGRATION_MODE='mock')
+class MaxLaunchMockModeSecurityTest(TestCase):
+    def test_unsigned_mock_launch_data_cannot_link_an_account(self):
+        user = get_user_model().objects.create_user(
+            email='mock-mode@test.local', password='pass12345', role='student',
+        )
+        client = APIClient()
+        client.force_authenticate(user=user)
+
+        response = client.post('/api/max/launch/', {'initData': 'mock:998877'}, format='json')
+
+        self.assertEqual(response.status_code, 400)
+        user.refresh_from_db()
+        self.assertIsNone(user.max_user_id)

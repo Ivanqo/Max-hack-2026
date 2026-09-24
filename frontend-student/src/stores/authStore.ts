@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { apiClient } from '@/lib/api'
+import { queryClient } from '@/lib/queryClient'
 
 interface User {
   id: number
@@ -14,7 +15,7 @@ interface AuthState {
   token: string | null
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, name: string) => Promise<void>
-  completeMaxLaunch: (initData: string) => Promise<string | undefined>
+  completeMaxLaunch: (initData: string) => Promise<{ startParam?: string; role: string }>
   logout: () => void
   checkAuth: () => void
 }
@@ -23,6 +24,13 @@ const normalizeUser = (user: any) => ({
   ...user,
   name: user.full_name || user.name || user.email,
 })
+
+function updateSession(set: (state: Partial<AuthState>) => void, get: () => AuthState, token: string, user: User) {
+  if (get().user?.id !== user.id) queryClient.clear()
+  set({ token, user })
+  localStorage.setItem('adminToken', token)
+  apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`
+}
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -34,8 +42,7 @@ export const useAuthStore = create<AuthState>()(
         const response = await apiClient.post('/v1/accounts/login/', { email, password })
         const token = response.data.access
         const user = normalizeUser(response.data.user)
-        set({ token, user })
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`
+        updateSession(set, get, token, user)
       },
 
       register: async (email: string, password: string, name: string) => {
@@ -50,21 +57,22 @@ export const useAuthStore = create<AuthState>()(
         })
         const token = response.data.tokens.access
         const user = normalizeUser(response.data.user)
-        set({ token, user })
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`
+        updateSession(set, get, token, user)
       },
 
       completeMaxLaunch: async (initData: string) => {
         const response = await apiClient.post('/max/launch/', { initData })
         const token = response.data.tokens.access
         const user = normalizeUser(response.data.user)
-        set({ token, user })
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`
-        return response.data.max?.start_param
+        updateSession(set, get, token, user)
+        return { startParam: response.data.max?.start_param, role: user.role }
       },
 
       logout: () => {
+        queryClient.clear()
         set({ user: null, token: null })
+        localStorage.removeItem('adminToken')
+        sessionStorage.removeItem('max-launch-processed')
         delete apiClient.defaults.headers.common['Authorization']
       },
 

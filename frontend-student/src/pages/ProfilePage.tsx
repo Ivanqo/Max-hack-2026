@@ -3,16 +3,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BookOpen, GraduationCap, Pencil, Plus, Sparkles, Target, Trash2 } from 'lucide-react'
 import { fetchStudentProfile, updateStudentProfile } from '@/lib/endpoints'
 import { skillLevelLabels } from '@/lib/labels'
+import { userQueryKey } from '@/lib/queryClient'
+import { useAuthStore } from '@/stores/authStore'
 import { Badge, Button, Card, ErrorState, Input, LoadingState, ProgressBar, Select, Sheet, Textarea, useToast } from '@/ui'
 import type { SelectedSkill } from '@/types'
 
 const STUDY_YEARS = [1, 2, 3, 4, 5, 6]
 
 export default function ProfilePage() {
+  const userId = useAuthStore((state) => state.user?.id ?? null)
   const queryClient = useQueryClient()
   const toast = useToast()
 
-  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['student-profile'], queryFn: fetchStudentProfile })
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: userQueryKey(userId, 'student-profile'), queryFn: fetchStudentProfile })
 
   const [editOpen, setEditOpen] = useState(false)
   const [form, setForm] = useState({ university: '', institute: '', program: '', studyYear: '', careerGoal: '', interests: '' })
@@ -23,10 +26,10 @@ export default function ProfilePage() {
     mutationFn: updateStudentProfile,
     onSuccess: () => {
       toast.success('Изменения сохранены')
-      queryClient.invalidateQueries({ queryKey: ['student-profile'] })
-      queryClient.invalidateQueries({ queryKey: ['career-analysis'] })
-      queryClient.invalidateQueries({ queryKey: ['career-gps-summary'] })
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+      queryClient.invalidateQueries({ queryKey: userQueryKey(userId, 'student-profile') })
+      queryClient.invalidateQueries({ queryKey: userQueryKey(userId, 'career-analysis') })
+      queryClient.invalidateQueries({ queryKey: userQueryKey(userId, 'career-gps-summary') })
+      queryClient.invalidateQueries({ queryKey: userQueryKey(userId, 'opportunities') })
     },
     onError: () => toast.error('Не удалось сохранить изменения', 'Попробуйте ещё раз.'),
   })

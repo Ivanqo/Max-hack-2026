@@ -68,17 +68,26 @@ function MaxLaunchBridge() {
       webApp?.ready?.()
       return
     }
-    sessionStorage.setItem('max-launch-processed', initData)
     completeMaxLaunch(initData)
-      .then((startParam) => {
+      .then(({ startParam, role }) => {
+        sessionStorage.setItem('max-launch-processed', initData)
+        sessionStorage.removeItem('max-launch-pending')
         webApp?.ready?.()
+        if (role !== 'student') {
+          window.location.replace('/admin/')
+          return
+        }
         const match = /^opportunity_(\d+)$/.exec(startParam || '')
         if (match) {
           navigate(`/opportunities?opportunity=${match[1]}`, { replace: true })
         }
       })
-      .catch(() => {
+      .catch((error: any) => {
         webApp?.ready?.()
+        if (error?.response?.data?.code === 'account_link_required') {
+          sessionStorage.setItem('max-launch-pending', initData)
+          navigate('/login', { replace: true })
+        }
       })
   }, [completeMaxLaunch, navigate])
 

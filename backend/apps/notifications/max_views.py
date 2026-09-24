@@ -4,6 +4,7 @@ import json
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -19,42 +20,17 @@ from apps.notifications.models import MaxWebhookEvent
 from apps.notifications.services import get_notification_service
 
 
-def get_or_create_max_student(max_user_id, username='', first_name='', last_name=''):
-    """Find or create the local student account linked to a MAX user id."""
-    User = get_user_model()
-    linked_user = User.objects.filter(max_user_id=max_user_id).first()
-    if linked_user:
-        return linked_user
-
-    email = f'max_{max_user_id}@max.local'
-    user, created = User.objects.get_or_create(
-        email=email,
-        defaults={
-            'first_name': first_name or 'MAX',
-            'last_name': last_name or 'Student',
-            'role': 'student',
-            'username': username,
-            'is_active': True,
-        },
-    )
-    if created:
-        user.set_unusable_password()
-        user.max_user_id = str(max_user_id)
-        user.max_username = username
-        user.max_linked_at = timezone.now()
-        user.save(update_fields=['password', 'max_user_id', 'max_username', 'max_linked_at'])
-    return user
-
-
 class MaxLaunchView(APIView):
-    """Validate MAX mini-app launch context and link it to a local student."""
+    """Validate MAX launch data and link it only to an authenticated app user."""
 
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         init_data = request.data.get('initData') or request.data.get('init_data') or ''
         try:
-            launch = validate_init_data(init_data)
+            # MAX identity linking always requires the signed provider payload,
+            # including when local notifications are configured in mock mode.
+            launch = validate_init_data(init_data, allow_mock=False)
         except MaxInitDataError:
             return Response(
                 {'detail': 'Invalid MAX launch context.'},
@@ -64,35 +40,58 @@ class MaxLaunchView(APIView):
         User = get_user_model()
         authenticated = bool(request.user and request.user.is_authenticated)
         user = request.user if authenticated else None
-        linked_user = User.objects.filter(max_user_id=launch.max_user_id).first()
+        try:
+            with transaction.atomic():
+                linked_user = User.objects.select_for_update().filter(
+                    max_user_id=launch.max_user_id,
+                ).first()
 
-        if authenticated and linked_user and linked_user.id != user.id:
+                if authenticated:
+                    user = User.objects.select_for_update().get(pk=user.pk)
+                    if user.max_user_id and user.max_user_id != launch.max_user_id:
+                        return Response(
+                            {'detail': 'This account is already linked to a different MAX profile.'},
+                            status=status.HTTP_409_CONFLICT,
+                        )
+                    if linked_user and linked_user.id != user.id:
+                        return Response(
+                            {'detail': 'This MAX account is already linked to another user.'},
+                            status=status.HTTP_409_CONFLICT,
+                        )
+                elif linked_user:
+                    user = linked_user
+                else:
+                    return Response(
+                        {
+                            'code': 'account_link_required',
+                            'detail': 'Sign in to your UniPath account to link this MAX profile.',
+                        },
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+
+                changed_fields = []
+                if not user.max_user_id:
+                    user.max_user_id = launch.max_user_id
+                    user.max_linked_at = timezone.now()
+                    changed_fields.extend(['max_user_id', 'max_linked_at'])
+                if launch.username and user.max_username != launch.username:
+                    user.max_username = launch.username
+                    changed_fields.append('max_username')
+                if launch.first_name and not user.first_name:
+                    user.first_name = launch.first_name
+                    changed_fields.append('first_name')
+                if launch.last_name and not user.last_name:
+                    user.last_name = launch.last_name
+                    changed_fields.append('last_name')
+                if changed_fields:
+                    user.save(update_fields=changed_fields)
+        except IntegrityError:
+            # The unique constraint remains the final guard if two accounts
+            # race to claim the same MAX identity.
             return Response(
                 {'detail': 'This MAX account is already linked to another user.'},
                 status=status.HTTP_409_CONFLICT,
             )
-
-        if linked_user and not authenticated:
-            user = linked_user
-        elif not user:
-            user = get_or_create_max_student(
-                launch.max_user_id, launch.username, launch.first_name, launch.last_name,
-            )
-
-        user.max_user_id = launch.max_user_id
-        user.max_username = launch.username
-        user.max_linked_at = timezone.now()
-        if launch.first_name and not user.first_name:
-            user.first_name = launch.first_name
-        if launch.last_name and not user.last_name:
-            user.last_name = launch.last_name
-        user.save(update_fields=[
-            'max_user_id',
-            'max_username',
-            'max_linked_at',
-            'first_name',
-            'last_name',
-        ])
 
         refresh = RefreshToken.for_user(user)
         return Response({
@@ -153,23 +152,20 @@ class MaxWebhookView(APIView):
         if not max_user_id:
             return
 
-        student = get_or_create_max_student(
-            max_user_id,
-            username=str(user.get('username') or ''),
-            first_name=str(user.get('first_name') or ''),
-            last_name=str(user.get('last_name') or ''),
-        )
-
-        service = get_notification_service()
-        service.send_notification(
-            student=student,
+        client = get_notification_service().get_client()
+        client.send_notification(
+            student_id='max-bot-welcome',
             title='UniPath MAX',
             message=(
                 'Привет! UniPath MAX поможет собрать карьерный профиль, '
                 'построить карьерный маршрут и найти подходящие стажировки и практики. '
                 'Открой мини-приложение, чтобы начать.'
             ),
-            idempotency_key=f'max:bot_started:{event_id}',
+            metadata={
+                'max_user_id': max_user_id,
+                'webapp_payload': 'home',
+                'webhook_event_id': event_id,
+            },
         )
 
     def _valid_secret(self, request) -> bool:

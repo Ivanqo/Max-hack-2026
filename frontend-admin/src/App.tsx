@@ -17,7 +17,7 @@ function App() {
     <div className="theme-admin min-h-screen">
       <ToastProvider>
         <AuthProvider>
-          <BrowserRouter>
+          <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route

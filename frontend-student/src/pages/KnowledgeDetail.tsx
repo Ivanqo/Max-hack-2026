@@ -2,13 +2,16 @@ import { useQuery } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, CalendarClock, CheckCircle2, ExternalLink, ShieldAlert } from 'lucide-react'
 import { fetchKnowledgeDetail } from '@/lib/endpoints'
+import { userQueryKey } from '@/lib/queryClient'
+import { useAuthStore } from '@/stores/authStore'
 import { knowledgeAudienceLabels, formatDate } from '@/lib/labels'
 import { Badge, Card, ErrorState, LoadingState } from '@/ui'
 
 export default function KnowledgeDetail() {
+  const userId = useAuthStore((state) => state.user?.id ?? null)
   const { id = '' } = useParams()
   const { data: item, isLoading, isError, refetch } = useQuery({
-    queryKey: ['knowledge-item', id],
+    queryKey: userQueryKey(userId, 'knowledge-item', id),
     queryFn: () => fetchKnowledgeDetail(id),
   })
 

@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Award, Compass, MapPin, ShieldCheck, TrendingUp } from 'lucide-react'
 import { fetchCareerAnalysis, fetchCareerGoals } from '@/lib/endpoints'
+import { userQueryKey } from '@/lib/queryClient'
+import { useAuthStore } from '@/stores/authStore'
 import { Badge, Chip, EmptyState, ErrorState, LoadingState, ProgressBar, ReadinessRing } from '@/ui'
 
 const priorityTone: Record<string, 'danger' | 'warning' | 'neutral'> = {
@@ -13,20 +15,23 @@ const priorityTone: Record<string, 'danger' | 'warning' | 'neutral'> = {
 const priorityLabels: Record<string, string> = { high: 'Приоритет', medium: 'Важно', low: 'Можно позже' }
 
 export default function CareerGPS() {
-  const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null)
+  const userId = useAuthStore((state) => state.user?.id ?? null)
+  const [selection, setSelection] = useState<{ userId: number | null; goalId: number } | null>(null)
+  const selectedGoalId = selection?.userId === userId ? selection.goalId : null
 
-  const goalsQuery = useQuery({ queryKey: ['career-goals'], queryFn: fetchCareerGoals })
+  const goalsQuery = useQuery({ queryKey: userQueryKey(userId, 'career-goals'), queryFn: fetchCareerGoals })
 
   useEffect(() => {
     if (goalsQuery.data && goalsQuery.data.length > 0 && selectedGoalId === null) {
-      setSelectedGoalId(goalsQuery.data[0].id)
+      setSelection({ userId, goalId: goalsQuery.data[0].id })
     }
-  }, [goalsQuery.data, selectedGoalId])
+  }, [goalsQuery.data, selectedGoalId, userId])
 
   const analysisQuery = useQuery({
-    queryKey: ['career-analysis', selectedGoalId],
+    queryKey: userQueryKey(userId, 'career-analysis', selectedGoalId),
     queryFn: () => fetchCareerAnalysis(selectedGoalId as number),
     enabled: selectedGoalId !== null,
+    retry: 2,
   })
 
   if (goalsQuery.isLoading) return <LoadingState label="Загружаем карьерные цели…" />
@@ -42,7 +47,7 @@ export default function CareerGPS() {
     )
   }
 
-  const analysis = analysisQuery.data
+  const analysis = analysisQuery.isError ? undefined : analysisQuery.data
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -53,7 +58,7 @@ export default function CareerGPS() {
 
       <div className="flex flex-wrap gap-2">
         {goalsQuery.data.map((goal) => (
-          <Chip key={goal.id} selected={goal.id === selectedGoalId} onClick={() => setSelectedGoalId(goal.id)}>
+        <Chip key={goal.id} selected={goal.id === selectedGoalId} onClick={() => setSelection({ userId, goalId: goal.id })}>
             {goal.title}
           </Chip>
         ))}

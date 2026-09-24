@@ -26,6 +26,10 @@ MAX_WEBAPP_BASE_URL=https://<public-domain>/
 
 Production webhook requests must include `X-Max-Bot-Api-Secret`. The backend compares it with `MAX_WEBHOOK_SECRET` using constant-time comparison and stores MAX update ids in `MaxWebhookEvent`, so duplicate updates are acknowledged without duplicate processing.
 
+The supported first-contact event is `bot_started`. It sends the welcome message and `open_app` button to that event's sender only. The webhook does not create an application account or bind its MAX identity. `POST /api/max/launch/` validates the signed `WebApp.initData`; an unlinked profile is bound only after the user signs into an existing UniPath account. A MAX ID already linked to another account is rejected.
+
+The student app serves the admin bundle on the same public HTTPS origin at `/admin/`; role routing uses the backend user returned after login or signed MAX launch.
+
 Register the webhook after deploying public HTTPS:
 
 ```bash

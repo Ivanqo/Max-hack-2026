@@ -46,6 +46,7 @@ docker-compose up
 
 - Student Portal: http://localhost:3000
 - Admin Portal: http://localhost:3001
+- Shared public-origin admin route: `/admin/` on the student portal host (HTTPS when served behind the production TLS proxy)
 - Backend API: http://localhost:8000
 - Database: localhost:5432
 
@@ -74,6 +75,8 @@ docker-compose exec db psql -U maxhack_user -d maxhack
 # Restart a service
 docker-compose restart backend
 ```
+
+These Docker Compose commands show logs only where the Compose project is available. This repository does not document a separate production log host, systemd unit, or remote log viewer.
 
 ## Health Checks
 
