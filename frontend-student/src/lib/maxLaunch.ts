@@ -52,6 +52,15 @@ export function currentMaxInitData(): string {
   return typeof initData === 'string' ? initData.trim() : ''
 }
 
+/** Wait briefly for the MAX Bridge to finish exposing its signed launch data. */
+export async function waitForCurrentMaxInitData(options: WaitOptions = {}): Promise<string> {
+  return waitForValue(
+    () => currentMaxInitData() || null,
+    'context_timeout',
+    options,
+  )
+}
+
 const defaultSleep = (milliseconds: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds))
 

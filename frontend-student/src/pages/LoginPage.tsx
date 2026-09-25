@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { LogIn, Sparkles } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAuthStore } from '@/stores/authStore'
-import { currentMaxInitData, maxRoleDestination } from '@/lib/maxLaunch'
+import { currentMaxInitData, maxRoleDestination, waitForCurrentMaxInitData } from '@/lib/maxLaunch'
 import { Button, Input } from '@/ui'
 
 export default function LoginPage() {
@@ -28,11 +28,19 @@ export default function LoginPage() {
     }
 
     try {
-      const pendingInitData = sessionStorage.getItem('max-launch-pending')
-      // After an explicit account switch, attach the live SDK context to the
-      // newly authenticated account. The server verifies its signature and
-      // performs any transfer atomically.
-      const initData = pendingInitData || currentMaxInitData()
+      const pendingInitData = sessionStorage.getItem('max-launch-pending')?.trim() || ''
+      // Read the current Bridge value first: a context retained from an earlier
+      // launch may have expired while the user was switching local accounts.
+      // Give the async SDK a short chance to publish the new value before using
+      // the validated context retained by the startup flow as a fallback.
+      let initData = currentMaxInitData()
+      if (!initData) {
+        try {
+          initData = await waitForCurrentMaxInitData({ timeoutMs: 1_500, pollIntervalMs: 80 })
+        } catch {
+          initData = pendingInitData
+        }
+      }
       const role = initData
         ? (await completeMaxLaunch(initData)).role
         : useAuthStore.getState().user?.role
@@ -50,6 +58,10 @@ export default function LoginPage() {
     } catch (bindingError: any) {
       sessionStorage.removeItem('max-launch-pending')
       const detail = bindingError?.response?.data?.detail
+      if (bindingError?.response?.status === 400 && detail === 'Invalid MAX launch context.') {
+        setError('Вход выполнен, но MAX не подтвердил данные запуска. Закройте Mini App и откройте его заново из MAX, затем войдите в этот аккаунт ещё раз. Связь MAX не была изменена.')
+        return
+      }
       setError(typeof detail === 'string' && detail.trim()
         ? `Вход выполнен, но MAX не удалось связать: ${detail}`
         : 'Вход выполнен, но MAX не удалось связать. Повторите запуск из MAX или обратитесь к администратору.')

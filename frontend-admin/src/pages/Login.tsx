@@ -2,7 +2,7 @@ import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { currentMaxInitData } from '@/lib/maxLaunch';
+import { currentMaxInitData, waitForCurrentMaxInitData } from '@/lib/maxLaunch';
 import { Button, Input } from '@/ui';
 
 export const Login = () => {
@@ -18,9 +18,19 @@ export const Login = () => {
     setError('');
     setLoading(true);
 
+    let authenticated = false;
     try {
       const account = await login(email, password);
-      const initData = currentMaxInitData();
+      authenticated = true;
+      let initData = currentMaxInitData();
+      if (!initData) {
+        try {
+          initData = await waitForCurrentMaxInitData({ timeoutMs: 1_500, pollIntervalMs: 80 });
+        } catch {
+          // Login outside MAX remains supported; there is no profile to link
+          // until the provider supplies signed launch data.
+        }
+      }
       const authenticatedAccount = initData ? await linkMaxProfile(initData) : account;
       sessionStorage.removeItem('max-launch-suppressed');
       if (authenticatedAccount.role === 'student') {
@@ -30,9 +40,13 @@ export const Login = () => {
       navigate('/');
     } catch (err) {
       const detail = (err as any)?.response?.data?.detail;
-      setError(typeof detail === 'string' && detail.trim()
-        ? detail
-        : err instanceof Error ? err.message : 'Не удалось войти. Проверьте почту, пароль и права доступа.');
+      if (authenticated && (err as any)?.response?.status === 400 && detail === 'Invalid MAX launch context.') {
+        setError('Вход выполнен, но MAX не подтвердил данные запуска. Закройте Mini App и откройте его заново из MAX, затем войдите в этот аккаунт ещё раз. Привязка не была изменена.');
+      } else {
+        setError(typeof detail === 'string' && detail.trim()
+          ? authenticated ? `Вход выполнен, но привязка MAX не завершена: ${detail}` : detail
+          : err instanceof Error ? err.message : 'Не удалось войти. Проверьте почту, пароль и права доступа.');
+      }
     } finally {
       setLoading(false);
     }

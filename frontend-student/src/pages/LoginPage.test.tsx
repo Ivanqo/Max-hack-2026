@@ -66,4 +66,70 @@ describe('login after MAX account switch', () => {
     expect(sessionStorage.getItem('max-launch-suppressed')).toBeNull()
     expect(useAuthStore.getState().user?.role).toBe('student')
   })
+
+  it('prefers the current Bridge context over an older context retained for login', async () => {
+    sessionStorage.setItem('max-launch-pending', 'older-context-fixture')
+    window.WebApp = { initData: 'fresh-context-fixture' }
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/home" element={<p>Студенческий интерфейс</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('student@demo.local'), { target: { value: 'student@example.test' } })
+    fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'fixture-password' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Войти' }))
+
+    await screen.findByText('Студенческий интерфейс')
+    await waitFor(() => expect(post).toHaveBeenNthCalledWith(2, '/max/launch/', { initData: 'fresh-context-fixture' }))
+  })
+
+  it('waits briefly when the bridge object arrives after the login form is submitted', async () => {
+    window.WebApp = {}
+    window.setTimeout(() => { window.WebApp = { initData: 'delayed-context-fixture' } }, 10)
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/home" element={<p>Студенческий интерфейс</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('student@demo.local'), { target: { value: 'student@example.test' } })
+    fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'fixture-password' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Войти' }))
+
+    await screen.findByText('Студенческий интерфейс')
+    await waitFor(() => expect(post).toHaveBeenNthCalledWith(2, '/max/launch/', { initData: 'delayed-context-fixture' }))
+  })
+
+  it('explains that a rejected MAX context needs a fresh app launch', async () => {
+    post.mockImplementationOnce(() => Promise.resolve({
+      data: {
+        access: 'login-session-fixture',
+        user: { id: 88, email: 'student@example.test', role: 'student', full_name: 'Student' },
+      },
+    })).mockRejectedValueOnce({
+      response: { status: 400, data: { detail: 'Invalid MAX launch context.' } },
+    })
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/home" element={<p>Студенческий интерфейс</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('student@demo.local'), { target: { value: 'student@example.test' } })
+    fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'fixture-password' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Войти' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Закройте Mini App и откройте его заново из MAX')
+    expect(screen.queryByText('Студенческий интерфейс')).toBeNull()
+  })
 })

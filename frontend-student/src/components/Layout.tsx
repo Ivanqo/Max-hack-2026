@@ -6,7 +6,7 @@ import { cn } from '@/ui'
 
 const navItems = [
   { to: '/home', label: 'Главная', icon: Home },
-  { to: '/career-gps', label: 'Карьерный навигатор', icon: Compass },
+  { to: '/career-gps', label: 'Карьерный навигатор', mobileLabel: 'Навигатор', icon: Compass },
   { to: '/opportunities', label: 'Возможности', icon: LayoutGrid },
   { to: '/knowledge', label: 'База знаний', icon: BookOpen },
   { to: '/profile', label: 'Профиль', icon: User },
@@ -192,7 +192,7 @@ export default function Layout() {
               {({ isActive }) => (
                 <>
                   <item.icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
-                  {item.label}
+                  {item.mobileLabel || item.label}
                 </>
               )}
             </NavLink>
