@@ -60,6 +60,13 @@ export interface Opportunity {
   sourceUrl: string;
   createdAt: string;
   updatedAt: string;
+  notificationDelivery?: {
+    recipientCount: number;
+    sentCount: number;
+    simulatedCount: number;
+    failedCount: number;
+    pendingCount: number;
+  };
 }
 
 export type DemandLevel = 'high' | 'medium' | 'low';

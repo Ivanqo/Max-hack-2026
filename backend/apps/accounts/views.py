@@ -289,6 +289,49 @@ class UserViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    @action(detail=True, methods=['get'], url_path='student-profile')
+    def student_profile(self, request, pk=None):
+        """Return the extended profile for a student visible to this admin."""
+        student = self.get_object()
+        if student.role != 'student':
+            return Response({'detail': 'Profile is available for student accounts only.'},
+                            status=status.HTTP_404_NOT_FOUND)
+
+        profile = getattr(student, 'student_profile', None)
+        return Response({
+            'user': {
+                'id': student.id,
+                'email': student.email,
+                'full_name': student.get_full_name(),
+                'university': student.university,
+                'date_joined': student.date_joined,
+                'last_login': student.last_login,
+                'max_linked': bool(student.max_user_id),
+            },
+            'profile': ({
+                'university': profile.university,
+                'institute': profile.institute,
+                'program': profile.program,
+                'study_year': profile.course,
+                'interests': profile.interests or [],
+                'career_goal': profile.career_goal.name if profile.career_goal else '',
+                'onboarding_completed': profile.onboarding_completed,
+                'updated_at': profile.updated_at,
+            } if profile else None),
+            'skills': ([{
+                'name': item.skill.name,
+                'level': item.level,
+                'verified': item.verified,
+            } for item in profile.skills.select_related('skill').all()] if profile else []),
+            'subscriptions': [{
+                'id': item.id,
+                'topic': item.topic,
+                'filters': item.filters,
+                'active': item.active,
+                'updated_at': item.updated_at,
+            } for item in student.subscriptions.all()],
+        })
+
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """

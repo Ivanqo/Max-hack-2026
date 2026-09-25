@@ -752,13 +752,23 @@ def _serialize_student_profile(user, profile):
     }
 
 
-@api_view(['GET', 'POST'])
+@api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsAuthenticated])
-def student_subscriptions(request):
+def student_subscriptions(request, subscription_id=None):
+    if request.method == 'DELETE':
+        if subscription_id is None:
+            return Response({'detail': 'Subscription id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        subscription = Subscription.objects.filter(student=request.user, id=subscription_id).first()
+        if not subscription:
+            return Response({'detail': 'Subscription not found.'}, status=status.HTTP_404_NOT_FOUND)
+        subscription.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     if request.method == 'POST':
+        topic = str(request.data.get('topic') or '').strip()
         subscription = Subscription.objects.create(
             student=request.user,
-            topic=request.data.get('topic', 'BIM'),
+            topic=topic or 'BIM',
             filters=request.data.get('filters') or {},
             active=request.data.get('active', True),
         )
@@ -886,9 +896,55 @@ def admin_opportunities(request):
     )
     _replace_opportunity_skills(item, data.get('skills') or [])
     _audit(request.user, 'create', 'opportunity', item.id, item.title)
+    notifications = []
     if item.published and item.verified_status == 'verified':
-        get_notification_service().create_for_opportunity_subscriptions(item)
-    return Response(_serialize_opportunity(item), status=status.HTTP_201_CREATED)
+        notifications = get_notification_service().create_for_opportunity_subscriptions(item)
+    result = _serialize_opportunity(item)
+    result['notificationDelivery'] = _notification_delivery_summary(notifications)
+    return Response(result, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def admin_opportunity_recipient_preview(request):
+    """Preview the exact active subscription audience before publishing."""
+    if not _is_manager(request.user):
+        return _forbidden()
+
+    data = request.data
+    opportunity_type = data.get('type', 'internship')
+    if opportunity_type not in OPPORTUNITY_TYPES:
+        opportunity_type = 'internship'
+    opportunity = Opportunity(
+        university=_university(request.user),
+        type=opportunity_type,
+        title=str(data.get('title') or ''),
+        description=str(data.get('description') or ''),
+        requirements='\n'.join(data.get('requirements') or []) if isinstance(data.get('requirements'), list) else str(data.get('requirements') or ''),
+        audience={
+            'company': data.get('company', ''),
+            'location': data.get('location', ''),
+            'remote': bool(data.get('remote', False)),
+        },
+    )
+    service = get_notification_service()
+    subscriptions = service.matching_subscriptions(opportunity)
+    recipients = {}
+    for subscription in subscriptions:
+        student = subscription.student
+        recipient = recipients.setdefault(student.pk, {
+            'id': student.pk,
+            'name': student.get_full_name() or 'Студент',
+            'maxLinked': bool(student.max_user_id),
+            'subscriptions': [],
+        })
+        recipient['subscriptions'].append(subscription.topic)
+    result = list(recipients.values())
+    return Response({
+        'recipientCount': len(result),
+        'linkedCount': sum(1 for recipient in result if recipient['maxLinked']),
+        'recipients': result,
+    })
 
 
 @api_view(['PUT', 'DELETE'])
@@ -926,9 +982,29 @@ def admin_opportunity_detail(request, pk):
     if 'skills' in data:
         _replace_opportunity_skills(item, data.get('skills') or [])
     _audit(request.user, 'update', 'opportunity', item.id, item.title)
+    notifications = []
     if item.published and item.verified_status == 'verified':
-        get_notification_service().create_for_opportunity_subscriptions(item)
-    return Response(_serialize_opportunity(item))
+        notifications = get_notification_service().create_for_opportunity_subscriptions(item)
+    result = _serialize_opportunity(item)
+    result['notificationDelivery'] = _notification_delivery_summary(notifications)
+    return Response(result)
+
+
+def _notification_delivery_summary(notifications):
+    """Return a compact, non-sensitive outcome summary for the admin UI."""
+    statuses = [notification.delivery_status for notification in notifications]
+    return {
+        'recipientCount': len(notifications),
+        'sentCount': statuses.count('sent'),
+        'simulatedCount': statuses.count('simulated'),
+        'failedCount': statuses.count('failed'),
+        'pendingCount': statuses.count('pending'),
+        'errors': sorted({
+            notification.last_error[:160]
+            for notification in notifications
+            if notification.delivery_status == 'failed' and notification.last_error
+        }),
+    }
 
 
 @api_view(['GET'])

@@ -39,6 +39,17 @@ export const createOpportunity = async (payload: OpportunityFormValues): Promise
   return data;
 };
 
+export interface OpportunityRecipientPreview {
+  recipientCount: number;
+  linkedCount: number;
+  recipients: { id: number; name: string; maxLinked: boolean; subscriptions: string[] }[];
+}
+
+export const previewOpportunityRecipients = async (payload: OpportunityFormValues): Promise<OpportunityRecipientPreview> => {
+  const { data } = await api.post('/admin/opportunities/recipients-preview', payload);
+  return data;
+};
+
 export const updateOpportunity = async (id: string, payload: OpportunityFormValues): Promise<Opportunity> => {
   const { data } = await api.put(`/admin/opportunities/${id}`, payload);
   return data;
@@ -133,6 +144,18 @@ export const fetchUsers = async (search?: string): Promise<UsersPage> => {
 
 export const setUserActive = async (id: number, active: boolean): Promise<void> => {
   await api.post(`/v1/accounts/users/${id}/${active ? 'activate' : 'deactivate'}/`);
+};
+
+export interface AdminStudentProfile {
+  user: { id: number; email: string; full_name: string; university: string; date_joined: string; last_login: string | null; max_linked: boolean };
+  profile: null | { university: string; institute: string; program: string; study_year: number | null; interests: string[]; career_goal: string; onboarding_completed: boolean; updated_at: string };
+  skills: { name: string; level: number; verified: boolean }[];
+  subscriptions: { id: number; topic: string; filters: Record<string, unknown>; active: boolean; updated_at: string }[];
+}
+
+export const fetchStudentProfile = async (id: number): Promise<AdminStudentProfile> => {
+  const { data } = await api.get(`/v1/accounts/users/${id}/student-profile/`);
+  return data;
 };
 
 export interface UserStats {

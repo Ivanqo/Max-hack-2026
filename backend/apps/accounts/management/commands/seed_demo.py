@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -81,23 +82,26 @@ class Command(BaseCommand):
         self._mai_opportunities(secondary.name, secondary_admin)
         self._mai_knowledge(secondary.name, secondary_admin)
 
-        Notification.objects.filter(
-            student__university=primary.name,
-            idempotency_key__startswith='subscription:',
-            delivery_status=Notification.DeliveryStatus.FAILED,
-        ).update(
-            status=Notification.Status.PENDING,
-            delivery_status=Notification.DeliveryStatus.PENDING,
-            failed_at=None,
-            last_error='',
-        )
-        service = NotificationService(client=MockMaxClient())
-        for opportunity in Opportunity.objects.filter(
-            university=primary.name,
-            published=True,
-            verified_status='verified',
-        ):
-            service.create_for_opportunity_subscriptions(opportunity)
+        # Demo seeding runs on every production container start. Never reset or
+        # simulate real notification deliveries as part of a production boot.
+        if getattr(settings, 'USE_MOCK_MAX_CLIENT', True):
+            Notification.objects.filter(
+                student__university=primary.name,
+                idempotency_key__startswith='subscription:',
+                delivery_status=Notification.DeliveryStatus.FAILED,
+            ).update(
+                status=Notification.Status.PENDING,
+                delivery_status=Notification.DeliveryStatus.PENDING,
+                failed_at=None,
+                last_error='',
+            )
+            service = NotificationService(client=MockMaxClient())
+            for opportunity in Opportunity.objects.filter(
+                university=primary.name,
+                published=True,
+                verified_status='verified',
+            ):
+                service.create_for_opportunity_subscriptions(opportunity)
 
         self.stdout.write(self.style.SUCCESS('Demo data ready.'))
         self.stdout.write(f'Primary university: {PRIMARY_UNIVERSITY}')

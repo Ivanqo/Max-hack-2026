@@ -109,12 +109,13 @@ class NotificationService:
 
         # Check if MAX API is available
         if not self._client.is_available():
+            notification.mark_as_failed('MAX API unavailable or not configured')
             log_max_event(
                 logger,
                 'max_notification_delivery',
                 correlation_id,
                 provider='max',
-                result='unavailable',
+                result='failed',
                 stage='delivery',
             )
             return False
@@ -239,32 +240,137 @@ class NotificationService:
 
     def create_for_opportunity_subscriptions(self, opportunity) -> list[Notification]:
         """Create notifications for active subscriptions matching an opportunity."""
+        notifications = []
+        matched_subscriptions = self.matching_subscriptions(opportunity)
+        students = {subscription.student_id: subscription.student for subscription in matched_subscriptions}
+        for student in students.values():
+            title = f'Новая возможность: {opportunity.title}'
+            # Older releases keyed deliveries by subscription, which created
+            # duplicate messages when several subscriptions matched. Reuse an
+            # existing row for this student and opportunity when present.
+            existing = list(Notification.objects.filter(
+                student=student,
+                opportunity=opportunity,
+            ).order_by('created_at', 'id'))
+            notification = next((item for item in existing if item.delivery_status in [
+                Notification.DeliveryStatus.SENT,
+                Notification.DeliveryStatus.SIMULATED,
+            ]), None)
+            if notification is None and existing:
+                notification = existing[0]
+                if notification.delivery_status in [
+                    Notification.DeliveryStatus.PENDING,
+                    Notification.DeliveryStatus.FAILED,
+                ]:
+                    notification.title = title
+                    notification.message = self._opportunity_notification_message(opportunity)
+                    notification.save(update_fields=['title', 'message'])
+            if notification is None:
+                idempotency_key = f'student:{student.id}:opportunity:{opportunity.id}'
+                notification = self.create_notification(
+                    student=student,
+                    title=title,
+                    message=self._opportunity_notification_message(opportunity),
+                    opportunity=opportunity,
+                    idempotency_key=idempotency_key,
+                )
+            if notification.delivery_status == Notification.DeliveryStatus.FAILED:
+                # Re-publishing an opportunity is an explicit retry signal for
+                # an earlier failed delivery. Reuse the idempotent row so the
+                # retry cannot create a second notification record.
+                notification.status = Notification.Status.PENDING
+                notification.delivery_status = Notification.DeliveryStatus.PENDING
+                notification.failed_at = None
+                notification.last_error = ''
+                notification.save(update_fields=[
+                    'status',
+                    'delivery_status',
+                    'failed_at',
+                    'last_error',
+                ])
+            if (
+                notification.delivery_status == Notification.DeliveryStatus.PENDING
+                and (notification.student.max_user_id or getattr(settings, 'USE_MOCK_MAX_CLIENT', True))
+            ):
+                self.send(notification)
+            notifications.append(notification)
+
+        return notifications
+
+    def retry_queued_notifications_for_student(self, student) -> list[Notification]:
+        """Deliver one queued opportunity notification per student and opportunity."""
+        candidates = Notification.objects.filter(
+            student=student,
+            opportunity__isnull=False,
+            delivery_status__in=[
+                Notification.DeliveryStatus.PENDING,
+                Notification.DeliveryStatus.FAILED,
+            ],
+        ).select_related('student', 'opportunity').order_by('opportunity_id', 'created_at', 'id')
+        notifications = []
+        seen_opportunities = set()
+        for notification in candidates:
+            if notification.opportunity_id in seen_opportunities:
+                continue
+            seen_opportunities.add(notification.opportunity_id)
+
+            already_delivered = Notification.objects.filter(
+                student=student,
+                opportunity_id=notification.opportunity_id,
+                delivery_status__in=[
+                    Notification.DeliveryStatus.SENT,
+                    Notification.DeliveryStatus.SIMULATED,
+                ],
+            ).exists()
+            if already_delivered:
+                continue
+
+            if notification.delivery_status == Notification.DeliveryStatus.FAILED:
+                notification.status = Notification.Status.PENDING
+                notification.delivery_status = Notification.DeliveryStatus.PENDING
+                notification.failed_at = None
+                notification.last_error = ''
+                notification.save(update_fields=[
+                    'status',
+                    'delivery_status',
+                    'failed_at',
+                    'last_error',
+                ])
+            if student.max_user_id and notification.delivery_status == Notification.DeliveryStatus.PENDING:
+                self.send(notification)
+            notifications.append(notification)
+        return notifications
+
+    def _opportunity_notification_message(self, opportunity) -> str:
+        """Build a concise Russian message with a description and relevant date."""
+        description = ' '.join((opportunity.description or '').split())
+        description_limit = 240
+        if len(description) > description_limit:
+            description = f'{description[:description_limit].rstrip()}...'
+
+        date = opportunity.deadline or opportunity.created_at
+        date_label = 'Срок подачи' if opportunity.deadline else 'Дата публикации'
+        date_text = timezone.localtime(date).strftime('%d.%m.%Y')
+        parts = [description] if description else []
+        parts.append(f'{date_label}: {date_text}')
+        return '\n\n'.join(parts)
+
+    def matching_subscriptions(self, opportunity):
+        """Return active, same-tenant subscriptions that match an opportunity.
+
+        The same matcher backs the admin preview and actual delivery so admins
+        see the audience the publish operation will use.
+        """
         text = self._opportunity_text(opportunity)
         subscriptions = Subscription.objects.filter(
             active=True,
             student__role='student',
             student__university=opportunity.university,
-        ).select_related('student')
-
-        notifications = []
-        for subscription in subscriptions:
-            if not self._subscription_matches(subscription, opportunity, text):
-                continue
-
-            title = f'Новая возможность: {opportunity.title}'
-            idempotency_key = f'subscription:{subscription.id}:opportunity:{opportunity.id}'
-            notification = self.create_notification(
-                student=subscription.student,
-                title=title,
-                message=f'Появилась релевантная opportunity по подписке "{subscription.topic}".',
-                opportunity=opportunity,
-                idempotency_key=idempotency_key,
-            )
-            if notification.delivery_status == Notification.DeliveryStatus.PENDING:
-                self.send(notification)
-            notifications.append(notification)
-
-        return notifications
+        ).select_related('student').order_by('student__last_name', 'student__first_name', 'id')
+        return [
+            subscription for subscription in subscriptions
+            if self._subscription_matches(subscription, opportunity, text)
+        ]
 
     def _subscription_matches(self, subscription: Subscription, opportunity, text: str) -> bool:
         topic = subscription.topic.lower().strip()

@@ -103,6 +103,19 @@ class MaxLaunchView(APIView):
                             user = users_by_id.get(target_id)
                             if user is None:
                                 raise User.DoesNotExist
+                            if (
+                                linked_user
+                                and linked_user.pk != user.pk
+                                and linked_user.role == 'student'
+                                and user.role != 'student'
+                            ):
+                                # Keep notification ownership on the student.
+                                link_result = 'student_link_preserved'
+                                if re.fullmatch(r'opportunity_\d+', launch.start_param):
+                                    # A notification deep link opens in the recipient's
+                                    # student session even if the Mini App held an admin session.
+                                    user = linked_user
+                                break
                             if user.max_user_id and user.max_user_id != launch.max_user_id:
                                 return self._rejected(
                                     correlation_id,
@@ -179,6 +192,28 @@ class MaxLaunchView(APIView):
             role=user.role,
             stage='link',
         )
+        try:
+            queued_notifications = get_notification_service().retry_queued_notifications_for_student(user)
+            retry_result = 'sent' if any(
+                item.delivery_status in {'sent', 'simulated'}
+                for item in queued_notifications
+            ) else 'completed'
+            log_max_event(
+                logger,
+                'max_notification_retry',
+                correlation_id,
+                result=retry_result,
+                stage='after_link',
+            )
+        except Exception:
+            logger.warning('Queued MAX notification retry failed')
+            log_max_event(
+                logger,
+                'max_notification_retry',
+                correlation_id,
+                result='failed',
+                stage='after_link',
+            )
         refresh = RefreshToken.for_user(user)
         return self._response({
             'user': UserSerializer(user).data,

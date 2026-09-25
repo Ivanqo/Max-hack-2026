@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Briefcase, Calendar, Edit, ExternalLink, Plus, Search, Trash2, X } from 'lucide-react';
-import { createOpportunity, deleteOpportunity, fetchOpportunities, OpportunityFormValues, updateOpportunity } from '@/api/endpoints';
+import { createOpportunity, deleteOpportunity, fetchOpportunities, OpportunityFormValues, OpportunityRecipientPreview, previewOpportunityRecipients, updateOpportunity } from '@/api/endpoints';
 import { useAuthUser } from '@/contexts/AuthContext';
 import { adminQueryKey } from '@/lib/adminQueryScope';
 import type { Opportunity, OpportunityVerifiedStatus } from '@/types';
@@ -105,6 +105,31 @@ export function Opportunities() {
   const [editing, setEditing] = useState<Opportunity | null>(null);
   const [form, setForm] = useState<FormState>(toFormState());
   const [deleteTarget, setDeleteTarget] = useState<Opportunity | null>(null);
+  const [recipientPreview, setRecipientPreview] = useState<{ payload: string; result: OpportunityRecipientPreview } | null>(null);
+
+  const showSaveResult = (opportunity: Opportunity, fallbackTitle: string) => {
+    const delivery = opportunity.notificationDelivery;
+    if (!delivery) {
+      toast.success(fallbackTitle);
+      return;
+    }
+    if (delivery.recipientCount === 0 && opportunity.published && opportunity.verifiedStatus === 'verified') {
+      toast.error('Возможность опубликована без получателей', 'Активные подписки студентов не совпали с описанием возможности. Проверьте предпросмотр получателей.');
+      return;
+    }
+    if (delivery.recipientCount === 0) {
+      toast.success(fallbackTitle);
+      return;
+    }
+    const summary = `Получателей: ${delivery.recipientCount}; отправлено: ${delivery.sentCount}; ошибок: ${delivery.failedCount}; ожидают отправки: ${delivery.pendingCount}.`;
+    if (delivery.failedCount > 0 || delivery.pendingCount > 0) {
+      toast.error('Возможность сохранена, доставка требует внимания', summary);
+    } else if (delivery.simulatedCount > 0) {
+      toast.success('Уведомления созданы в тестовом режиме', summary);
+    } else {
+      toast.success('Уведомления отправлены', summary);
+    }
+  };
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -117,8 +142,8 @@ export function Opportunities() {
 
   const createMutation = useMutation({
     mutationFn: (payload: OpportunityFormValues) => createOpportunity(payload),
-    onSuccess: () => {
-      toast.success('Возможность создана');
+    onSuccess: (opportunity) => {
+      showSaveResult(opportunity, 'Возможность создана');
       setSheetOpen(false);
       invalidate();
     },
@@ -127,8 +152,8 @@ export function Opportunities() {
 
   const updateMutation = useMutation({
     mutationFn: (payload: OpportunityFormValues) => updateOpportunity(editing!.id, payload),
-    onSuccess: () => {
-      toast.success('Изменения сохранены');
+    onSuccess: (opportunity) => {
+      showSaveResult(opportunity, 'Изменения сохранены');
       setSheetOpen(false);
       invalidate();
     },
@@ -145,14 +170,22 @@ export function Opportunities() {
     onError: () => toast.error('Не удалось удалить возможность'),
   });
 
+  const previewMutation = useMutation({
+    mutationFn: previewOpportunityRecipients,
+    onSuccess: (result, payload) => setRecipientPreview({ payload: JSON.stringify(payload), result }),
+    onError: () => toast.error('Не удалось загрузить список получателей'),
+  });
+
   const openCreate = () => {
     setEditing(null);
     setForm(toFormState());
+    setRecipientPreview(null);
     setSheetOpen(true);
   };
   const openEdit = (o: Opportunity) => {
     setEditing(o);
     setForm(toFormState(o));
+    setRecipientPreview(null);
     setSheetOpen(true);
   };
   const handleSubmit = (e: React.FormEvent) => {
@@ -300,6 +333,37 @@ export function Opportunities() {
             {verifiedOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </Select>
           <Switch checked={form.published} onChange={(v) => setForm({ ...form, published: v })} label="Опубликовано" hint="Видно студентам, если также подтверждено" />
+
+          <div className="rounded-xl border border-ink-200 bg-ink-50/60 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-ink-900">Получатели уведомления</p>
+                <p className="text-xs text-ink-500">Студенты вашего университета с активной подходящей подпиской</p>
+              </div>
+              <Button type="button" size="sm" variant="outline" loading={previewMutation.isPending} onClick={() => previewMutation.mutate(toPayload(form))}>
+                Предпросмотр
+              </Button>
+            </div>
+            {recipientPreview?.payload === JSON.stringify(toPayload(form)) && (
+              <div className="mt-3 space-y-2" role="status">
+                <p className="text-sm text-ink-700">
+                  Подходящих студентов: <strong>{recipientPreview.result.recipientCount}</strong>; MAX связан у <strong>{recipientPreview.result.linkedCount}</strong>.
+                </p>
+                {recipientPreview.result.recipientCount > 0 ? (
+                  <ul className="divide-y divide-ink-200 text-sm">
+                    {recipientPreview.result.recipients.map((recipient) => (
+                      <li key={recipient.id} className="flex flex-wrap justify-between gap-x-3 py-2">
+                        <span className="font-medium text-ink-800">{recipient.name}</span>
+                        <span className={recipient.maxLinked ? 'text-emerald-700' : 'text-amber-700'}>
+                          {recipient.maxLinked ? 'MAX связан' : 'MAX не связан'} · {recipient.subscriptions.join(', ')}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p className="text-sm text-amber-700">Ни одна активная подписка не совпала с описанием возможности.</p>}
+              </div>
+            )}
+          </div>
 
           <div className="flex gap-2 pt-2">
             <Button type="submit" loading={saving} fullWidth>{editing ? 'Сохранить' : 'Создать'}</Button>

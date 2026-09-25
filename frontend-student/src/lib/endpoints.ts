@@ -100,6 +100,10 @@ export const createSubscription = async (topic: string): Promise<SubscriptionIte
   return data
 }
 
+export const deleteSubscription = async (id: string): Promise<void> => {
+  await apiClient.delete(`/student/subscriptions/${id}`)
+}
+
 export const fetchStudentProfile = async (): Promise<StudentProfileResponse> => {
   const { data } = await apiClient.get('/student/profile')
   return data

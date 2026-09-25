@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Bell, Bookmark, BookmarkCheck, Calendar, Search, SlidersHorizontal, X } from 'lucide-react'
-import { createSubscription, fetchOpportunities, saveOpportunity, unsaveOpportunity } from '@/lib/endpoints'
+import { createSubscription, fetchOpportunities, fetchSubscriptions, saveOpportunity, searchKnowledge, unsaveOpportunity } from '@/lib/endpoints'
 import { userQueryKey } from '@/lib/queryClient'
 import { useAuthStore } from '@/stores/authStore'
 import { opportunityTypeOptions, opportunityTypeLabels, daysUntil, matchTone } from '@/lib/labels'
@@ -103,13 +103,17 @@ export default function Opportunities() {
   const [minMatch, setMinMatch] = useState<number | undefined>()
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [subscribeOpen, setSubscribeOpen] = useState(false)
-  const [topic, setTopic] = useState('BIM')
+  const [topic, setTopic] = useState('')
   const debouncedSearch = useDebounced(search)
 
   const filters = useMemo(() => ({ search: debouncedSearch, type, minMatch }), [debouncedSearch, type, minMatch])
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: userQueryKey(userId, 'opportunities', filters),
     queryFn: () => fetchOpportunities(filters),
+  })
+  const { data: subscriptions = [] } = useQuery({
+    queryKey: userQueryKey(userId, 'subscriptions'),
+    queryFn: fetchSubscriptions,
   })
 
   const saveMutation = useMutation({
@@ -127,16 +131,32 @@ export default function Opportunities() {
   })
 
   const subscribeMutation = useMutation({
-    mutationFn: (value: string) => createSubscription(value),
-    onSuccess: () => {
-      toast.success('Подписка создана', 'Мы пришлём уведомление в MAX, когда появится что-то подходящее.')
+    mutationFn: async (term: string) => {
+      const subscription = await createSubscription(term)
+      let knowledge = null
+      try {
+        knowledge = await searchKnowledge(term)
+      } catch {
+        // Subscription creation should succeed even if knowledge search is temporarily unavailable.
+      }
+      return { subscription, knowledge }
+    },
+    onSuccess: ({ knowledge }) => {
+      const article = knowledge?.results[0]
+      toast.success('Подписка создана', article ? 'Нашли материал по этому термину в базе знаний.' : 'Мы пришлём уведомление, когда появится подходящая возможность.')
       setSubscribeOpen(false)
+      setTopic('')
       queryClient.invalidateQueries({ queryKey: userQueryKey(userId, 'subscriptions') })
+      if (article) navigate(`/knowledge/${article.id}`)
     },
     onError: () => toast.error('Не удалось создать подписку'),
   })
 
   const activeFilterCount = (type ? 1 : 0) + (minMatch ? 1 : 0)
+  const searchTerm = search.trim()
+  const alreadySubscribed = subscriptions.some((subscription) =>
+    subscription.active && subscription.topic.trim().toLocaleLowerCase() === searchTerm.toLocaleLowerCase(),
+  )
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -165,6 +185,21 @@ export default function Opportunities() {
           </Button>
         </div>
       </div>
+
+      {searchTerm.length >= 2 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-brand-50/70 px-4 py-3">
+          <p className="text-sm text-ink-700">
+            {alreadySubscribed
+              ? `Вы уже подписаны на «${searchTerm}».`
+              : `Следить за новыми возможностями по теме «${searchTerm}»?`}
+          </p>
+          {!alreadySubscribed && (
+            <Button size="sm" variant="outline" onClick={() => { setTopic(searchTerm); setSubscribeOpen(true) }}>
+              Подписаться на тему
+            </Button>
+          )}
+        </div>
+      )}
 
       {activeFilterCount > 0 && (
         <div className="flex flex-wrap items-center gap-2">
@@ -232,9 +267,9 @@ export default function Opportunities() {
 
       <Sheet open={subscribeOpen} onClose={() => setSubscribeOpen(false)} title="Подписаться на тему">
         <div className="space-y-4">
-          <p className="text-sm text-ink-500">Мы пришлём уведомление в MAX, как только появится подходящая новая возможность.</p>
-          <Input label="Тема" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Например, BIM" />
-          <Button fullWidth loading={subscribeMutation.isPending} disabled={!topic.trim()} onClick={() => subscribeMutation.mutate(topic)}>
+          <p className="text-sm text-ink-500">Получайте уведомления о новых возможностях, где встречается выбранный термин.</p>
+          <Input label="Термин" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Например, BIM" />
+          <Button fullWidth loading={subscribeMutation.isPending} disabled={!topic.trim()} onClick={() => subscribeMutation.mutate(topic.trim())}>
             Создать подписку
           </Button>
         </div>

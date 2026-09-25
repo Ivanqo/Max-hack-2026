@@ -55,7 +55,7 @@ class NotificationServiceTest(TestCase):
             role='student',
             university='Demo University',
         )
-        subscription = Subscription.objects.create(student=student, topic='Backend', active=True)
+        Subscription.objects.create(student=student, topic='Backend', active=True)
         opportunity = Opportunity.objects.create(
             university='Demo University',
             type='internship',
@@ -73,8 +73,68 @@ class NotificationServiceTest(TestCase):
         self.assertEqual(len(first), 1)
         self.assertEqual(len(second), 1)
         self.assertEqual(Notification.objects.filter(
-            idempotency_key=f'subscription:{subscription.id}:opportunity:{opportunity.id}',
+            idempotency_key=f'student:{student.id}:opportunity:{opportunity.id}',
         ).count(), 1)
+
+    def test_multiple_matching_subscriptions_create_one_notification(self):
+        User = get_user_model()
+        student = User.objects.create_user(
+            email='multi-subscription@test.local',
+            password='pass12345',
+            role='student',
+            university='Demo University',
+        )
+        Subscription.objects.create(student=student, topic='BIM', active=True)
+        Subscription.objects.create(student=student, topic='Revit', active=True)
+        opportunity = Opportunity.objects.create(
+            university='Demo University',
+            type='internship',
+            title='BIM internship',
+            description='Build a model in Revit.',
+            requirements='',
+            verified_status='verified',
+            published=True,
+        )
+
+        notifications = get_notification_service().create_for_opportunity_subscriptions(opportunity)
+
+        self.assertEqual(len(notifications), 1)
+        self.assertEqual(Notification.objects.filter(student=student, opportunity=opportunity).count(), 1)
+
+    @override_settings(MAX_INTEGRATION_MODE='real', USE_MOCK_MAX_CLIENT=False)
+    def test_real_notification_waits_for_max_link_then_sends_once(self):
+        student = get_user_model().objects.create_user(
+            email='unlinked-notify@test.local',
+            password='pass12345',
+            role='student',
+            university='Demo University',
+        )
+        Subscription.objects.create(student=student, topic='Backend', active=True)
+        opportunity = Opportunity.objects.create(
+            university='Demo University',
+            type='internship',
+            title='Backend Internship',
+            description='Build Backend APIs.',
+            requirements='',
+            verified_status='verified',
+            published=True,
+        )
+        client = Mock()
+        client.is_available.return_value = True
+        client.send_notification.return_value = {'success': True, 'provider': 'max'}
+        service = NotificationService(client=client)
+
+        queued, = service.create_for_opportunity_subscriptions(opportunity)
+        self.assertEqual(queued.delivery_status, Notification.DeliveryStatus.PENDING)
+        client.send_notification.assert_not_called()
+
+        student.max_user_id = 'max-queued-notify'
+        student.save(update_fields=['max_user_id'])
+        retried, = service.retry_queued_notifications_for_student(student)
+        retried.refresh_from_db()
+
+        self.assertEqual(retried.delivery_status, Notification.DeliveryStatus.SENT)
+        client.send_notification.assert_called_once()
 
     @override_settings(MAX_INTEGRATION_MODE='real', USE_MOCK_MAX_CLIENT=False)
     def test_retry_failed_notification_reuses_existing_row(self):
@@ -559,6 +619,20 @@ class MaxLaunchTest(TestCase):
         self.admin.refresh_from_db()
         self.assertEqual(self.admin.max_user_id, '54321')
 
+    @patch('apps.notifications.max_views.get_notification_service')
+    def test_successful_student_link_retries_queued_notifications(self, get_service):
+        init_data = self._signed_init_data({
+            'auth_date': str(int(time.time())),
+            'user': json.dumps({'id': 54322}),
+        })
+
+        response = self._launch_as(self.student, init_data)
+
+        self.assertEqual(response.status_code, 200)
+        get_service.return_value.retry_queued_notifications_for_student.assert_called_once()
+        linked_student = get_service.return_value.retry_queued_notifications_for_student.call_args.args[0]
+        self.assertEqual(linked_student.pk, self.student.pk)
+
     def test_unlinked_anonymous_launch_requires_existing_account(self):
         init_data = self._signed_init_data({
             'auth_date': str(int(time.time())),
@@ -605,6 +679,47 @@ class MaxLaunchTest(TestCase):
         self.assertEqual(editor.role, 'editor')
         self.assertEqual(other_student.max_user_id, '12357')
         self.assertEqual(other_student.role, 'student')
+
+    def test_admin_launch_does_not_take_max_link_from_student(self):
+        self.student.max_user_id = '12358'
+        self.student.max_linked_at = timezone.now()
+        self.student.save(update_fields=['max_user_id', 'max_linked_at'])
+        init_data = self._signed_init_data({
+            'auth_date': str(int(time.time())),
+            'user': json.dumps({'id': 12358}),
+        })
+
+        response = self._launch_as(self.admin, init_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['user']['id'], self.admin.id)
+        self.assertEqual(response.data['user']['role'], 'admin')
+        self.student.refresh_from_db()
+        self.admin.refresh_from_db()
+        self.assertEqual(self.student.max_user_id, '12358')
+        self.assertIsNone(self.admin.max_user_id)
+        self.assertEqual(get_user_model().objects.filter(max_user_id='12358').count(), 1)
+
+    def test_opportunity_deep_link_restores_linked_student_session_from_admin(self):
+        self.student.max_user_id = '12359'
+        self.student.max_linked_at = timezone.now()
+        self.student.save(update_fields=['max_user_id', 'max_linked_at'])
+        init_data = self._signed_init_data({
+            'auth_date': str(int(time.time())),
+            'user': json.dumps({'id': 12359}),
+            'start_param': 'opportunity_33',
+        })
+
+        response = self._launch_as(self.admin, init_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['user']['id'], self.student.id)
+        self.assertEqual(response.data['user']['role'], 'student')
+        self.assertEqual(response.data['max']['start_param'], 'opportunity_33')
+        self.student.refresh_from_db()
+        self.admin.refresh_from_db()
+        self.assertEqual(self.student.max_user_id, '12359')
+        self.assertIsNone(self.admin.max_user_id)
 
     def test_repeat_launch_for_same_account_is_idempotent(self):
         init_data = self._signed_init_data({

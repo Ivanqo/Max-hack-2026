@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BookOpen, GraduationCap, Pencil, Plus, Sparkles, Target, Trash2 } from 'lucide-react'
-import { fetchStudentProfile, updateStudentProfile } from '@/lib/endpoints'
+import { deleteSubscription, fetchStudentProfile, updateStudentProfile } from '@/lib/endpoints'
 import { skillLevelLabels } from '@/lib/labels'
 import { userQueryKey } from '@/lib/queryClient'
 import { useAuthStore } from '@/stores/authStore'
@@ -32,6 +32,16 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: userQueryKey(userId, 'opportunities') })
     },
     onError: () => toast.error('Не удалось сохранить изменения', 'Попробуйте ещё раз.'),
+  })
+
+  const deleteSubscriptionMutation = useMutation({
+    mutationFn: deleteSubscription,
+    onSuccess: () => {
+      toast.success('Подписка удалена')
+      queryClient.invalidateQueries({ queryKey: userQueryKey(userId, 'student-profile') })
+      queryClient.invalidateQueries({ queryKey: userQueryKey(userId, 'subscriptions') })
+    },
+    onError: () => toast.error('Не удалось удалить подписку'),
   })
 
   const completeness = useMemo(() => {
@@ -206,11 +216,22 @@ export default function ProfilePage() {
           <Sparkles className="h-4.5 w-4.5 text-brand-600" style={{ height: 18, width: 18 }} /> Подписки
         </h2>
         {data.subscriptions.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-2">
             {data.subscriptions.map((sub) => (
-              <Badge key={sub.id} tone={sub.active ? 'success' : 'neutral'}>
-                {sub.topic}{sub.newItems > 0 && ` · ${sub.newItems} новых`}
-              </Badge>
+              <div key={sub.id} className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 px-3 py-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={sub.active ? 'success' : 'neutral'}>{sub.topic}{sub.newItems > 0 && ` · ${sub.newItems} новых`}</Badge>
+                </div>
+                <button
+                  onClick={() => deleteSubscriptionMutation.mutate(sub.id)}
+                  disabled={deleteSubscriptionMutation.isPending}
+                  className="rounded-lg p-2 text-ink-400 hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50"
+                  aria-label={`Удалить подписку ${sub.topic}`}
+                  title="Удалить подписку"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             ))}
           </div>
         ) : (

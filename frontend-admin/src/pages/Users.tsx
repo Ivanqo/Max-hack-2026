@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, ShieldCheck, ShieldOff, Users as UsersIcon } from 'lucide-react';
-import { fetchUsers, setUserActive } from '@/api/endpoints';
+import { fetchStudentProfile, fetchUsers, setUserActive } from '@/api/endpoints';
 import { useAuthUser } from '@/contexts/AuthContext';
 import { adminQueryKey } from '@/lib/adminQueryScope';
-import { Badge, Card, EmptyState, ErrorState, LoadingState, useToast } from '@/ui';
+import { Badge, Card, EmptyState, ErrorState, LoadingState, Sheet, useToast } from '@/ui';
 
 const roleLabels: Record<string, string> = {
   admin: 'Администратор',
@@ -18,6 +18,7 @@ const roleLabels: Record<string, string> = {
 
 export const Users = () => {
   const [search, setSearch] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
   const user = useAuthUser();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -26,6 +27,11 @@ export const Users = () => {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: usersKey,
     queryFn: () => fetchUsers(search || undefined),
+  });
+  const profileQuery = useQuery({
+    queryKey: adminQueryKey(user, 'student-profile', selectedStudent),
+    queryFn: () => fetchStudentProfile(selectedStudent!),
+    enabled: selectedStudent !== null,
   });
 
   const toggleMutation = useMutation({
@@ -83,7 +89,11 @@ export const Users = () => {
               {data.results.map((user) => (
                 <tr key={user.id} className="hover:bg-ink-50/50">
                   <td className="px-5 py-3.5">
-                    <p className="font-medium text-ink-900">{user.full_name || user.email}</p>
+                    {user.role === 'student' ? (
+                      <button className="text-left font-medium text-brand-700 hover:underline" onClick={() => setSelectedStudent(user.id)}>
+                        {user.full_name || user.email}
+                      </button>
+                    ) : <p className="font-medium text-ink-900">{user.full_name || user.email}</p>}
                     <p className="text-xs text-ink-400">{user.email}</p>
                   </td>
                   <td className="hidden px-5 py-3.5 text-ink-600 sm:table-cell">{roleLabels[user.role] || user.role}</td>
@@ -92,6 +102,11 @@ export const Users = () => {
                     <Badge tone={user.is_active ? 'success' : 'neutral'}>{user.is_active ? 'Активен' : 'Отключён'}</Badge>
                   </td>
                   <td className="px-5 py-3.5 text-right">
+                    {user.role === 'student' && (
+                      <button onClick={() => setSelectedStudent(user.id)} className="mr-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50">
+                        Профиль
+                      </button>
+                    )}
                     <button
                       onClick={() => toggleMutation.mutate({ id: user.id, active: !user.is_active })}
                       disabled={toggleMutation.isPending}
@@ -107,6 +122,41 @@ export const Users = () => {
           </table>
         </Card>
       )}
+      <Sheet open={selectedStudent !== null} onClose={() => setSelectedStudent(null)} title="Профиль студента">
+        {profileQuery.isLoading ? <LoadingState label="Загружаем профиль…" /> : profileQuery.isError || !profileQuery.data ? (
+          <ErrorState title="Не удалось загрузить профиль" onRetry={() => profileQuery.refetch()} />
+        ) : (
+          <div className="space-y-5 text-sm">
+            <section>
+              <h3 className="font-semibold text-ink-900">{profileQuery.data.user.full_name}</h3>
+              <p className="text-ink-500">{profileQuery.data.user.email}</p>
+              <p className="mt-1 text-ink-600">{profileQuery.data.user.university || 'Университет не указан'} · MAX {profileQuery.data.user.max_linked ? 'связан' : 'не связан'}</p>
+            </section>
+            {profileQuery.data.profile ? (
+              <>
+                <section className="space-y-1">
+                  <h3 className="font-semibold text-ink-900">Обучение и цель</h3>
+                  <p>{[profileQuery.data.profile.institute, profileQuery.data.profile.program, profileQuery.data.profile.study_year && `${profileQuery.data.profile.study_year} курс`].filter(Boolean).join(' · ') || 'Данные об обучении не заполнены'}</p>
+                  <p>Карьерная цель: {profileQuery.data.profile.career_goal || 'не указана'}</p>
+                  <p>Анкета: {profileQuery.data.profile.onboarding_completed ? 'заполнена' : 'не завершена'}</p>
+                </section>
+                <section>
+                  <h3 className="mb-2 font-semibold text-ink-900">Интересы</h3>
+                  <p>{profileQuery.data.profile.interests.join(', ') || 'Не указаны'}</p>
+                </section>
+              </>
+            ) : <p className="text-ink-500">Студент ещё не заполнил профиль.</p>}
+            <section>
+              <h3 className="mb-2 font-semibold text-ink-900">Навыки</h3>
+              {profileQuery.data.skills.length ? <ul className="space-y-1">{profileQuery.data.skills.map((skill) => <li key={skill.name}>{skill.name} · {skill.level}/5{skill.verified ? ' · подтверждён' : ''}</li>)}</ul> : <p className="text-ink-500">Навыки не указаны</p>}
+            </section>
+            <section>
+              <h3 className="mb-2 font-semibold text-ink-900">Подписки на возможности</h3>
+              {profileQuery.data.subscriptions.length ? <ul className="space-y-1">{profileQuery.data.subscriptions.map((sub) => <li key={sub.id}>{sub.topic} · {sub.active ? 'активна' : 'приостановлена'}</li>)}</ul> : <p className="text-ink-500">Подписок нет</p>}
+            </section>
+          </div>
+        )}
+      </Sheet>
     </div>
   );
 };
