@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { LogIn, Sparkles } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAuthStore } from '@/stores/authStore'
-import { maxRoleDestination } from '@/lib/maxLaunch'
+import { currentMaxInitData, maxRoleDestination } from '@/lib/maxLaunch'
 import { Button, Input } from '@/ui'
 
 export default function LoginPage() {
@@ -29,18 +29,17 @@ export default function LoginPage() {
 
     try {
       const pendingInitData = sessionStorage.getItem('max-launch-pending')
-      if (pendingInitData) {
-        const { role } = await completeMaxLaunch(pendingInitData)
-        const destination = maxRoleDestination(role)
-        if (!destination) throw new Error('Unsupported account role')
-        sessionStorage.removeItem('max-launch-pending')
-        if (destination === '/admin/') {
-          window.location.replace('/admin/')
-          return
-        }
-      }
-      const role = useAuthStore.getState().user?.role
+      // After an explicit account switch, attach the live SDK context to the
+      // newly authenticated account. The server verifies its signature and
+      // performs any transfer atomically.
+      const initData = pendingInitData || currentMaxInitData()
+      const role = initData
+        ? (await completeMaxLaunch(initData)).role
+        : useAuthStore.getState().user?.role
       const destination = role ? maxRoleDestination(role) : '/home'
+      if (!destination) throw new Error('Unsupported account role')
+      sessionStorage.removeItem('max-launch-pending')
+      sessionStorage.removeItem('max-launch-suppressed')
       if (destination === '/admin/') {
         window.location.replace('/admin/')
       } else if (destination === '/home') {

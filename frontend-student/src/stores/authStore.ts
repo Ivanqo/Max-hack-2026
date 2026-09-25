@@ -32,6 +32,14 @@ function updateSession(set: (state: Partial<AuthState>) => void, get: () => Auth
   apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`
 }
 
+let authRevision = 0
+
+function staleAuthRequestError() {
+  const error = new Error('Authentication changed while MAX launch was being checked.')
+  Object.assign(error, { code: 'auth_state_changed' })
+  return error
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -39,13 +47,16 @@ export const useAuthStore = create<AuthState>()(
       token: null,
 
       login: async (email: string, password: string) => {
+        const revision = ++authRevision
         const response = await apiClient.post('/v1/accounts/login/', { email, password })
+        if (revision !== authRevision) throw staleAuthRequestError()
         const token = response.data.access
         const user = normalizeUser(response.data.user)
         updateSession(set, get, token, user)
       },
 
       register: async (email: string, password: string, name: string) => {
+        const revision = ++authRevision
         const [firstName, ...lastNameParts] = name.trim().split(' ')
         const response = await apiClient.post('/v1/accounts/register/', {
           email,
@@ -55,13 +66,16 @@ export const useAuthStore = create<AuthState>()(
           last_name: lastNameParts.join(' '),
           role: 'student',
         })
+        if (revision !== authRevision) throw staleAuthRequestError()
         const token = response.data.tokens.access
         const user = normalizeUser(response.data.user)
         updateSession(set, get, token, user)
       },
 
       completeMaxLaunch: async (initData: string) => {
+        const revision = authRevision
         const response = await apiClient.post('/max/launch/', { initData })
+        if (revision !== authRevision) throw staleAuthRequestError()
         const token = response.data.tokens.access
         const user = normalizeUser(response.data.user)
         updateSession(set, get, token, user)
@@ -69,6 +83,8 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        authRevision += 1
+        sessionStorage.setItem('max-launch-suppressed', 'true')
         queryClient.clear()
         set({ user: null, token: null })
         localStorage.removeItem('adminToken')

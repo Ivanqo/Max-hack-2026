@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import time
+from datetime import timedelta
 from io import StringIO
 from urllib.parse import urlencode
 from unittest.mock import Mock, patch
@@ -447,6 +448,36 @@ class MaxWebhookTest(TestCase):
         self.assertEqual(client_adapter.send_notification.call_args.kwargs['metadata']['webapp_payload'], 'home')
 
     @patch('apps.notifications.max_views.get_notification_service')
+    def test_a_later_explicit_start_gets_a_new_welcome(self, get_service):
+        client_adapter = Mock()
+        client_adapter.send_notification.return_value = {'success': True, 'provider': 'max'}
+        get_service.return_value.get_client.return_value = client_adapter
+        client = APIClient()
+        first = client.post(
+            '/api/max/webhook/',
+            {'update_id': 'later-start-1', 'update_type': 'bot_started', 'user': {'user_id': 82008}},
+            format='json',
+            HTTP_X_MAX_BOT_API_SECRET='secret',
+        )
+        claim = MaxWebhookEvent.objects.get(event_type='welcome_claim')
+        claim.processed_at = timezone.now() - timedelta(minutes=2)
+        claim.save(update_fields=['processed_at'])
+        second = client.post(
+            '/api/max/webhook/',
+            {
+                'update_id': 'later-start-2',
+                'update_type': 'message_created',
+                'message': {'sender': {'user_id': 82008}, 'body': {'text': '/start'}},
+            },
+            format='json',
+            HTTP_X_MAX_BOT_API_SECRET='secret',
+        )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(client_adapter.send_notification.call_count, 2)
+
+    @patch('apps.notifications.max_views.get_notification_service')
     def test_message_created_non_start_does_not_greet(self, get_service):
         response = APIClient().post(
             '/api/max/webhook/',
@@ -541,6 +572,16 @@ class MaxLaunchTest(TestCase):
         self.assertFalse(get_user_model().objects.filter(max_user_id='12346').exists())
 
     def test_signed_authenticated_launch_moves_link_from_mgsu_to_mai(self):
+        editor = get_user_model().objects.create_user(
+            email='editor@test.local', password='pass12345', role='editor',
+            university='МАИ', max_user_id='12356',
+        )
+        other_student = get_user_model().objects.create_user(
+            email='other-student@test.local', password='pass12345', role='student',
+            university='НИУ МГСУ', max_user_id='12357',
+        )
+        self.admin.max_user_id = '12347'
+        self.admin.save(update_fields=['max_user_id'])
         init_data = self._signed_init_data({
             'auth_date': str(int(time.time())),
             'user': json.dumps({'id': 12347}),
@@ -558,6 +599,12 @@ class MaxLaunchTest(TestCase):
         self.assertEqual(self.student.max_user_id, '12347')
         self.assertEqual(second.data['user']['role'], 'student')
         self.assertEqual(get_user_model().objects.filter(max_user_id='12347').count(), 1)
+        editor.refresh_from_db()
+        other_student.refresh_from_db()
+        self.assertEqual(editor.max_user_id, '12356')
+        self.assertEqual(editor.role, 'editor')
+        self.assertEqual(other_student.max_user_id, '12357')
+        self.assertEqual(other_student.role, 'student')
 
     def test_repeat_launch_for_same_account_is_idempotent(self):
         init_data = self._signed_init_data({

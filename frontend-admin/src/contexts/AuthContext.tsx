@@ -102,21 +102,49 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const response = await api.post('/v1/accounts/login/', { email, password });
     const { access: token, user: userData } = response.data;
 
-    if (!MANAGER_ROLES.includes(userData.role)) {
-      throw new Error('Доступ запрещен. Нужны права администратора или редактора.');
+    if (!MANAGER_ROLES.includes(userData.role) && userData.role !== 'student') {
+      throw new Error('Для этого аккаунта нет интерфейса входа.');
     }
 
-    localStorage.setItem('adminToken', token);
-    localStorage.setItem('auth-storage', JSON.stringify({
-      state: { token, user: userData },
-      version: 0,
-    }));
-    if (identityRef.current !== null && identityRef.current !== adminIdentityKey(userData)) queryClient.clear();
-    identityRef.current = adminIdentityKey(userData);
-    setUser(userData);
+    persistSession(token, userData);
+    if (MANAGER_ROLES.includes(userData.role)) {
+      applyUser(userData);
+    } else {
+      queryClient.clear();
+      identityRef.current = null;
+      setUser(null);
+    }
+    return userData as User;
+  };
+
+  const linkMaxProfile = async (initData: string) => {
+    const signedInUser = readSharedUser();
+    if (!signedInUser) throw new Error('Войдите в аккаунт перед привязкой MAX.');
+
+    const response = await api.post('/max/launch/', { initData });
+    const linkedUser = response.data.user as User;
+    if (
+      linkedUser.id !== signedInUser.id ||
+      (!MANAGER_ROLES.includes(linkedUser.role) && linkedUser.role !== 'student')
+    ) {
+      throw new Error('MAX вернул другую учётную запись. Привязка отменена.');
+    }
+
+    const token = response.data.tokens?.access;
+    if (token) persistSession(token, linkedUser);
+    if (MANAGER_ROLES.includes(linkedUser.role)) {
+      applyUser(linkedUser);
+    } else {
+      queryClient.clear();
+      identityRef.current = null;
+      setUser(null);
+    }
+    return linkedUser;
   };
 
   const logout = () => {
+    sessionStorage.setItem('max-launch-suppressed', 'true');
+    sessionStorage.removeItem('max-launch-pending');
     queryClient.clear();
     identityRef.current = null;
     localStorage.removeItem('adminToken');
@@ -125,15 +153,31 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, linkMaxProfile, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
+function persistSession(token: string, user: User) {
+  localStorage.setItem('adminToken', token);
+  localStorage.setItem('auth-storage', JSON.stringify({
+    state: { token, user },
+    version: 0,
+  }));
+}
+
 function readSharedToken() {
   try {
     return JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token || null;
+  } catch {
+    return null;
+  }
+}
+
+function readSharedUser(): User | null {
+  try {
+    return JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.user || null;
   } catch {
     return null;
   }

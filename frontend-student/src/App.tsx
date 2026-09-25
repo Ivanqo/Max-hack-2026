@@ -6,9 +6,9 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { useAuthStore } from './stores/authStore'
 import {
   createMaxSdkLoader,
+  currentMaxWebApp,
   launchMaxApp,
   MaxLaunchStartupError,
-  MaxWebAppBridge,
   waitForMaxBridgeSdk,
 } from './lib/maxLaunch'
 import { ToastProvider } from './ui'
@@ -27,9 +27,6 @@ import AboutPage from './pages/AboutPage'
 
 declare global {
   interface Window {
-    MAX?: { WebApp?: MaxWebAppBridge }
-    WebApp?: MaxWebAppBridge
-    Telegram?: { WebApp?: MaxWebAppBridge }
     __MAX_DIAGNOSTICS__?: {
       bridgeAvailable: boolean
       initDataAvailable: boolean
@@ -38,15 +35,10 @@ declare global {
   }
 }
 
-type WebAppBridge = MaxWebAppBridge | undefined
 type LaunchState = 'loading' | 'error' | 'idle'
 
-function currentWebApp(): WebAppBridge {
-  return window.MAX?.WebApp || window.WebApp || window.Telegram?.WebApp
-}
-
 const loadMaxBridgeSdk = createMaxSdkLoader(() =>
-  waitForMaxBridgeSdk(currentWebApp, { timeoutMs: 15_000, pollIntervalMs: 100 }),
+  waitForMaxBridgeSdk(currentMaxWebApp, { timeoutMs: 15_000, pollIntervalMs: 100 }),
 )
 
 function publishLaunchDiagnostics(bridgeAvailable: boolean, initDataAvailable: boolean, launchState: string) {
@@ -73,13 +65,15 @@ function launchErrorMessage(error: any): string {
   return 'Не удалось запустить UniPath MAX. Проверьте соединение и попробуйте ещё раз.'
 }
 
-function MaxLaunchBridge() {
+export function MaxLaunchBridge() {
   const navigate = useNavigate()
+  const hasLocalSession = useAuthStore((state) => Boolean(state.token))
   const completeMaxLaunch = useAuthStore((state) => state.completeMaxLaunch)
   const [state, setState] = useState<LaunchState>('loading')
   const [message, setMessage] = useState('Подключаем UniPath MAX…')
-  const [diagnostics, setDiagnostics] = useState({ bridgeAvailable: Boolean(currentWebApp()), initDataAvailable: false })
+  const [diagnostics, setDiagnostics] = useState({ bridgeAvailable: Boolean(currentMaxWebApp()), initDataAvailable: false })
   const running = useRef(false)
+  const startupStarted = useRef(false)
   const pendingInitData = useRef('')
 
   const launch = useCallback(async (retry = false) => {
@@ -92,13 +86,13 @@ function MaxLaunchBridge() {
     setMessage(retry ? 'Повторяем запуск…' : 'Подключаем UniPath MAX…')
     try {
       const result = await launchMaxApp({
-        getWebApp: currentWebApp,
+        getWebApp: currentMaxWebApp,
         loadSdk: loadMaxBridgeSdk,
         completeLaunch: completeMaxLaunch,
         timeoutMs: 8_000,
         pollIntervalMs: 80,
         onStage: (stage) => {
-          const webApp = currentWebApp()
+          const webApp = currentMaxWebApp()
           const currentDiagnostics = {
             bridgeAvailable: Boolean(webApp),
             initDataAvailable: Boolean(webApp?.initData?.trim()),
@@ -122,7 +116,11 @@ function MaxLaunchBridge() {
       else navigate(result.destination, { replace: true })
       setState('idle')
     } catch (error: any) {
-      const webApp = currentWebApp()
+      if (error?.code === 'auth_state_changed') {
+        setState('idle')
+        return
+      }
+      const webApp = currentMaxWebApp()
       const currentDiagnostics = { bridgeAvailable: Boolean(webApp), initDataAvailable: Boolean(webApp?.initData?.trim()) }
       setDiagnostics(currentDiagnostics)
       publishLaunchDiagnostics(currentDiagnostics.bridgeAvailable, currentDiagnostics.initDataAvailable, 'error')
@@ -142,12 +140,23 @@ function MaxLaunchBridge() {
   }, [completeMaxLaunch, navigate])
 
   useEffect(() => {
+    if (startupStarted.current) return
+    startupStarted.current = true
+    if (sessionStorage.getItem('max-launch-suppressed') === 'true') {
+      setState('idle')
+      return
+    }
     void launch()
   }, [launch])
 
   if (state === 'idle') return null
   return (
-    <div className="fixed inset-x-3 top-3 z-[100] mx-auto max-w-lg rounded-2xl border border-ink-200 bg-white p-4 shadow-card" role={state === 'error' ? 'alert' : 'status'}>
+    <div
+      className={state === 'loading' && hasLocalSession
+        ? 'fixed inset-0 z-[100] grid place-content-center bg-white/95 p-6'
+        : 'fixed inset-x-3 top-3 z-[100] mx-auto max-w-lg rounded-2xl border border-ink-200 bg-white p-4 shadow-card'}
+      role={state === 'error' ? 'alert' : 'status'}
+    >
       <p className="text-sm font-semibold text-ink-900">{state === 'loading' ? 'Запуск Mini App' : 'MAX Mini App не запущено'}</p>
       <p className="mt-1 text-sm text-ink-600">{message}</p>
       <p className="mt-2 text-xs text-ink-400">
@@ -157,7 +166,7 @@ function MaxLaunchBridge() {
         <button
           className="mt-3 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
           onClick={() => {
-            if (!currentWebApp()) window.location.reload()
+            if (!currentMaxWebApp()) window.location.reload()
             else void launch(true)
           }}
           type="button"

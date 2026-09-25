@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { currentMaxInitData } from '@/lib/maxLaunch';
 import { Button, Input } from '@/ui';
 
 export const Login = () => {
@@ -9,7 +10,7 @@ export const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, linkMaxProfile } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
@@ -18,10 +19,20 @@ export const Login = () => {
     setLoading(true);
 
     try {
-      await login(email, password);
+      const account = await login(email, password);
+      const initData = currentMaxInitData();
+      const authenticatedAccount = initData ? await linkMaxProfile(initData) : account;
+      sessionStorage.removeItem('max-launch-suppressed');
+      if (authenticatedAccount.role === 'student') {
+        window.location.replace('/');
+        return;
+      }
       navigate('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось войти. Проверьте почту, пароль и права доступа.');
+      const detail = (err as any)?.response?.data?.detail;
+      setError(typeof detail === 'string' && detail.trim()
+        ? detail
+        : err instanceof Error ? err.message : 'Не удалось войти. Проверьте почту, пароль и права доступа.');
     } finally {
       setLoading(false);
     }

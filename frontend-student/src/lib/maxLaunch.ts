@@ -10,6 +10,14 @@ export interface MaxLaunchContext {
   initData: string
 }
 
+declare global {
+  interface Window {
+    MAX?: { WebApp?: MaxWebAppBridge }
+    WebApp?: MaxWebAppBridge
+    Telegram?: { WebApp?: MaxWebAppBridge }
+  }
+}
+
 export type MaxLaunchStage = 'waiting_for_sdk' | 'waiting_for_context' | 'checking_backend' | 'authenticated'
 
 export class MaxLaunchStartupError extends Error {
@@ -31,6 +39,17 @@ interface LaunchMaxAppOptions extends WaitOptions {
   completeLaunch: (initData: string) => Promise<{ role: string; startParam?: string }>
   onStage?: (stage: MaxLaunchStage) => void
   onContext?: (context: MaxLaunchContext) => void
+}
+
+export function currentMaxWebApp(): MaxWebAppBridge | undefined {
+  if (typeof window === 'undefined') return undefined
+  return window.MAX?.WebApp || window.WebApp || window.Telegram?.WebApp
+}
+
+/** Reads only provider SDK data; query/hash parameters are never identity. */
+export function currentMaxInitData(): string {
+  const initData = currentMaxWebApp()?.initData
+  return typeof initData === 'string' ? initData.trim() : ''
 }
 
 const defaultSleep = (milliseconds: number) =>

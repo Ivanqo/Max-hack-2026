@@ -3,6 +3,7 @@ import hmac
 import json
 import logging
 import re
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -286,7 +287,10 @@ class MaxWebhookView(APIView):
             if not created:
                 claim = MaxWebhookEvent.objects.select_for_update().get(pk=claim.pk)
                 claim_status = (claim.payload or {}).get('status')
-                if claim_status in {'sending', 'sent', 'simulated'}:
+                dedupe_seconds = max(0, int(getattr(settings, 'MAX_WELCOME_DEDUPE_SECONDS', 60)))
+                dedupe_after = timezone.now() - timedelta(seconds=dedupe_seconds)
+                recent_start = claim.processed_at >= dedupe_after
+                if recent_start and claim_status in {'sending', 'sent', 'simulated'}:
                     log_max_event(
                         logger,
                         'max_welcome',
@@ -296,7 +300,8 @@ class MaxWebhookView(APIView):
                     )
                     return
                 claim.payload = {'status': 'sending'}
-                claim.save(update_fields=['payload'])
+                claim.processed_at = timezone.now()
+                claim.save(update_fields=['payload', 'processed_at'])
 
         mode = getattr(settings, 'MAX_INTEGRATION_MODE', 'mock')
         if not is_public_https_url(getattr(settings, 'MAX_OPEN_APP_TARGET', '')):
