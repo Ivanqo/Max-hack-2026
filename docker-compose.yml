@@ -5,9 +5,9 @@ services:
     environment:
       POSTGRES_DB: maxhack
       POSTGRES_USER: maxhack_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme123}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -28,13 +28,13 @@ services:
     container_name: max-hack-backend
     environment:
       BUILD_COMMIT_SHA: ${BUILD_COMMIT_SHA:-unknown}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://maxhack_user:${DB_PASSWORD:-changeme123}@db:5432/maxhack}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       DB_NAME: ${DB_NAME:-maxhack}
       DB_USER: ${DB_USER:-maxhack_user}
-      DB_PASSWORD: ${DB_PASSWORD:-changeme123}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       DB_HOST: ${DB_HOST:-db}
       DB_PORT: ${DB_PORT:-5432}
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-${SECRET_KEY:-dev-secret-key-change-in-production}}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-${DEBUG:-false}}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
@@ -48,7 +48,7 @@ services:
       MAX_INITDATA_MAX_AGE_SECONDS: ${MAX_INITDATA_MAX_AGE_SECONDS:-3600}
       AUTO_SEED_DEMO: ${AUTO_SEED_DEMO:-true}
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "${BACKEND_PORT:-127.0.0.1:8000}:8000"
     volumes:
       - backend_media:/app/media
       - backend_static:/app/staticfiles
@@ -76,7 +76,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
     ports:
-      - "${STUDENT_PORT:-3000}:80"
+      - "${STUDENT_PORT:-127.0.0.1:3000}:80"
     depends_on:
       - backend
     healthcheck:
@@ -100,7 +100,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
     ports:
-      - "${ADMIN_PORT:-3001}:80"
+      - "${ADMIN_PORT:-127.0.0.1:3001}:80"
     depends_on:
       - backend
     healthcheck:
