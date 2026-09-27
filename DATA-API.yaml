@@ -65,7 +65,7 @@ checks:
 
   - id: "admin_publish_opportunity"
     name: "Публикация стажировки администратором"
-    description: "Публикует тестовую стажировку и может отправить реальное сообщение MAX. Тестовые студент и администратор должны относиться к одному вузу; профиль студента должен быть связан с MAX."
+    description: "Публикует тестовую стажировку и создает уведомление для подходящей подписки. Статус simulated ожидается в mock-режиме; sent означает ответ реального провайдера MAX. Проверка не гарантирует доставку получателю. Тестовые студент и администратор должны относиться к одному вузу."
     method: "POST"
     path: "/api/admin/opportunities"
     role: "admin"
@@ -92,8 +92,8 @@ checks:
       publishedOpportunityId: "$.id"
 
   - id: "student_notification_for_published_opportunity"
-    name: "Уведомление MAX о новой возможности"
-    description: "Проверяет, что студенту доступно уведомление, связанное с опубликованной стажировкой."
+    name: "Запись об уведомлении для новой возможности"
+    description: "Проверяет доступность созданной записи уведомления. Допустимый delivery_status зависит от конфигурации: simulated в mock-режиме, sent после успешного ответа реального провайдера; ни один из вариантов сам по себе не подтверждает получение сообщения человеком."
     method: "GET"
     path: "/api/v1/notifications/"
     role: "student"
@@ -120,7 +120,7 @@ checks:
               required: ["delivery_status"]
               properties:
                 delivery_status:
-                  const: "sent"
+                  enum: ["simulated", "sent"]
     timeoutMs: 10000
     repeatable: true
 
