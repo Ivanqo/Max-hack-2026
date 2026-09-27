@@ -1,235 +1,168 @@
 # UniPath MAX
 
-UniPath MAX is a reproducible MVP for the educational solutions track: a MAX mini-app plus Django API that helps students build a career profile, get Career GPS guidance, match opportunities, subscribe to topics, and receive proactive MAX bot notifications when an admin publishes a relevant opportunity.
+UniPath MAX — мини-приложение в MAX и веб-сервис для студентов МГСУ. Оно помогает связать учебный профиль с карьерными ориентирами и возможностями, которые публикует университет. Проект соответствует треку хакатона «Образовательные решения»: карьера и стажировки, а также обратная связь и управленческая аналитика.
 
-## Main Demo Scenario
+## Проблема и аудитория
 
-1. Student opens the MAX bot.
-2. Bot opens the MAX mini-app.
-3. Mini-app sends MAX `initData` to `POST /api/max/launch/`.
-4. Backend validates signed WebAppData, links `max_user_id` to a local student, and returns JWT tokens.
-5. Student completes onboarding with university, institute, program, study year, interests, skills, and career goal.
-6. Career GPS and opportunity matching are calculated from saved profile and `StudentSkill` rows.
-7. Student saves an opportunity and creates a subscription.
-8. Admin publishes a matching opportunity.
-9. Backend creates one idempotent notification per matching subscription.
-10. In `mock` mode the notification is stored as `simulated`; in `real` mode `RealMaxClient` sends `POST https://platform-api2.max.ru/messages?user_id=<max_user_id>` with `Authorization: <MAX_BOT_TOKEN>`.
-11. If `MAX_OPEN_APP_TARGET` is configured, the MAX message includes an `open_app` inline button with payload `opportunity_<id>`.
-12. User returns to the opportunity list and sees match score, reasons, and gaps.
+Приоритетная аудитория MVP — студенты МГСУ, которым сложно выбрать профессиональное направление, понять, каких навыков не хватает, и найти подходящую практику или другой карьерный следующий шаг.
 
-## Architecture
+Команда провела 15 интервью со студентами МГСУ: 10 студентов 4 курса, 3 — 3 курса и 2 — 1 курса. В этих интервью 8 из 15 участников не определились с конечным направлением, 3 из 15 затруднились определить нужные навыки, а 4 из 15 занижали свои навыки и не решались воспользоваться возможностями. Участники также говорили, что трудно найти оплачиваемую практику по специальности. Оценка руководителями практики покрытия примерно 20–40% потока — только мнение участников интервью, а не официальная статистика.
+
+Эти интервью дают качественный сигнал о проблеме, но не являются репрезентативным исследованием. Измеренных продуктовых результатов пока нет: команда провела интервью и технические прогоны.
+
+## Что делает продукт
+
+Студент заполняет профиль, указывает навыки, интересы и карьерную цель. UniPath MAX рассчитывает ориентир готовности к выбранной роли, показывает сильные стороны и пробелы, подбирает возможности по профилю и объясняет совпадения. Студент может сохранить карточку и подписаться на тему. Администратор размещает возможности и материалы базы знаний; при публикации система формирует уведомления подходящим подписчикам.
+
+### Студенческий контур
+
+- регистрация и вход, запуск из MAX и связывание MAX-профиля с существующей учетной записью;
+- профиль и первичное заполнение университета, института, программы, курса, интересов, навыков и карьерной цели;
+- Career GPS: расчет готовности к карьерной роли, сильные стороны, пробелы и следующие действия;
+- список возможностей с оценкой совпадения, причинами и пробелами, просмотр карточки и сохранение;
+- подписки на тематические возможности;
+- поиск материалов базы знаний с указанием источника и запасным ответом, если подтвержденного материала нет;
+- получение уведомлений для подходящих подписок; записи доступны через API.
+
+### Административный контур
+
+- вход для административных ролей;
+- управление возможностями и карьерными ролями;
+- управление материалами базы знаний;
+- просмотр пользователей и профилей, предварительный просмотр подходящих получателей;
+- сводная аналитика взаимодействий.
+
+Модель возможности не содержит отдельного структурированного поля об оплате. Поэтому в текущем MVP нет подтвержденного фильтра по оплачиваемым предложениям. Отдельного центра уведомлений студента в интерфейсе пока нет: после публикации администратор видит сводку создания/доставки, а записи студента доступны через API.
+
+## Архитектура
 
 ```text
-MAX Bot
-  -> MAX mini-app / React Student UI
-      -> Django REST API
-          -> PostgreSQL
-          -> Career GPS
-          -> Opportunity Matching
-          -> Subscriptions
-          -> Notifications
-          -> MAX Bot API
-
-React Admin UI -> Django REST API
+Бот MAX → мини-приложение / React-интерфейс студента ─┐
+                                                      ├→ Django REST API → PostgreSQL
+React-интерфейс администратора ───────────────────────┘          │
+                                                                ├→ профили, Career GPS и подбор
+                                                                ├→ база знаний и аналитика
+                                                                └→ адаптер уведомлений MAX
 ```
 
-The backend is a modular Django monolith with separate apps for accounts, profiles, careers, opportunities, subscriptions, notifications, analytics, knowledge, and universities.
+Backend — модульный монолит Django REST Framework. Домены разделены на Django-приложения: учетные записи, профили, карьера, возможности, подписки, уведомления, аналитика, база знаний и университеты. Подбор возможностей и расчет карьерной готовности выполняются детерминированными правилами. Интерфейсы студента и администратора — React, TypeScript и Vite. Хранилище — PostgreSQL.
 
-## Quick Start
+Основные файлы и материалы:
 
-```bash
-cp .env.example .env
-docker compose up --build
-```
+- `docker-compose.yml` — локальный стек;
+- `backend/requirements.txt`, `frontend-student/package-lock.json`, `frontend-admin/package-lock.json` — зафиксированные зависимости;
+- `openapi.yaml` — контракт API;
+- `DATA-API.yaml` — конфигурация проверок API версии схемы 1.0;
+- `docs/architecture.md`, `DOCKER.md`, `DEMO_TEST_SCENARIO.md` — дополнительные технические инструкции;
+- `SECURITY.md` — правила работы с учетными данными и MAX.
 
-The backend container runs migrations and, by default, an idempotent demo seed (`AUTO_SEED_DEMO=true`). To disable demo seed, set `AUTO_SEED_DEMO=false`.
+## Локальный запуск
 
-Open:
-
-- Student app: http://localhost:3000
-- Admin app: http://localhost:3001
-- Backend health: http://localhost:8000/api/health/
-- OpenAPI contract: `openapi.yaml`
-- Contest API checks: `DATA-API.yaml`
-
-## Environment Variables
-
-Core:
-
-```env
-DJANGO_SECRET_KEY=change-me-in-production
-DJANGO_DEBUG=False
-DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
-DATABASE_URL=postgresql://maxhack_user:changeme123@db:5432/maxhack
-VITE_API_URL=/api
-AUTO_SEED_DEMO=true
-```
-
-MAX local/demo:
-
-```env
-MAX_API_URL=https://platform-api2.max.ru
-MAX_INTEGRATION_MODE=mock
-MAX_BOT_TOKEN=
-MAX_WEBHOOK_SECRET=
-MAX_WEBHOOK_URL=
-MAX_OPEN_APP_TARGET=
-MAX_WEBAPP_BASE_URL=http://localhost:3000
-MAX_INITDATA_MAX_AGE_SECONDS=3600
-```
-
-MAX production:
-
-```env
-MAX_API_URL=https://platform-api2.max.ru
-MAX_BOT_TOKEN=<real bot token>
-MAX_INTEGRATION_MODE=real
-MAX_WEBHOOK_SECRET=<random 32+ chars>
-MAX_WEBHOOK_URL=https://<public-domain>/api/max/webhook/
-MAX_OPEN_APP_TARGET=https://max.ru/<bot_username>
-MAX_WEBAPP_BASE_URL=https://<public-domain>/
-```
-
-Do not put real secrets in frontend code, `.env.example`, README, screenshots, or commits.
-
-## Ports
-
-- `5432`: PostgreSQL
-- `8000`: Django API (`BACKEND_PORT` can override)
-- `3000`: Student frontend (`STUDENT_PORT` can override)
-- `3001`: Admin frontend (`ADMIN_PORT` can override)
-
-## Demo Accounts
-
-All seeded demo users use password `demo12345`.
-
-- Admin: `admin@demo.local`
-- Editor: `editor@demo.local`
-- Student: `student@demo.local`
-- Second tenant student: `student@north.local`
-
-## Test Data
-
-`python manage.py seed_demo` creates synthetic universities, users, career roles, skills, opportunities, knowledge items, subscriptions, and tenant-isolation marker data. The data is model/demo data, not live university data.
-
-## MAX Integration
-
-Real API base: `https://platform-api2.max.ru`.
-
-Implemented production contract:
-
-- Message send: `POST /messages?user_id=<max_user_id>`
-- Authorization: raw header `Authorization: <MAX_BOT_TOKEN>`
-- Webhook receiver: `POST /api/max/webhook/`
-- Webhook protection: `X-Max-Bot-Api-Secret`
-- Webhook subscription registration: `python manage.py register_max_webhook`
-- Mini-app launch validation: `POST /api/max/launch/` validates signed WebAppData/initData and links `max_user_id`.
-- `open_app` return buttons use `MAX_OPEN_APP_TARGET`, the public MAX bot username/link for the mini-app. `MAX_WEBAPP_BASE_URL` is the public frontend URL used when configuring the mini-app itself.
-
-Local deterministic mode:
-
-- `MAX_INTEGRATION_MODE=mock`
-- Notifications are created and marked `delivery_status=simulated`
-- No real MAX network call is made
-
-## Manual Smoke Check
-
-Executable check:
-
-```bash
-cd backend
-python scripts/smoke_data_api.py --base-url http://localhost:8000
-```
-
-On Windows with the local virtualenv:
+Нужны Docker Engine или Docker Desktop с Docker Compose. Рекомендуемый воспроизводимый запуск из корня репозитория:
 
 ```powershell
-backend/.venv/Scripts/python.exe backend/scripts/smoke_data_api.py --base-url http://localhost:8000
+Copy-Item .env.example .env
+docker compose up --build -d
 ```
 
-The smoke runner follows `DATA-API.yaml`: health, login, onboarding, Career GPS, opportunities, save, subscription, admin publish, notification verification, idempotent republish, knowledge verified source/fallback, and admin analytics.
+Для Linux/macOS вместо `Copy-Item` используйте `cp .env.example .env`. Перед запуском можно изменить `.env`; файл игнорируется Git. Значения в `.env.example` предназначены только для локальной демонстрации. Не используйте демонстрационные настройки в публичной среде.
 
-1. Start stack with `docker compose up --build`.
-2. Open student app and login as `student@demo.local / demo12345`.
-3. Complete onboarding or update `/profile` skills.
-4. Open Career GPS and verify readiness/gaps reflect selected skills.
-5. Open Opportunities, save one item, create subscription topic `BIM`.
-6. Open admin app and login as `admin@demo.local / demo12345`.
-7. Create an active opportunity with requirements `BIM`, `Revit`, `Navisworks`.
-8. Verify backend creates one notification for the matching subscription.
-9. In mock mode, notification has `delivery_status=simulated`.
-10. In real mode, linked students receive a MAX message with an `open_app` button returning to `opportunity_<id>` when `MAX_OPEN_APP_TARGET` points to the public MAX bot/mini-app.
+Compose поднимает PostgreSQL, Django API и два React-интерфейса. Backend выполняет миграции при старте. При `AUTO_SEED_DEMO=true` он запускает идемпотентную команду `seed_demo`, создающую синтетические записи. Локальные демо-учетные записи предназначены только для этой базы; их имена и учетные данные команда показывает в своем выводе. Не переносите их в публичную среду и не добавляйте пароли в документацию или коммиты.
 
-Expected result: the student can return to the opportunity and see match percentage, reasons, gaps, and save state without manual DB edits.
+Чтобы посмотреть вывод инициализации локальной базы:
 
-## API
-
-The documented scenario API lives in `openapi.yaml`. The contest check file is `DATA-API.yaml`.
-
-Most-used endpoints:
-
-- `POST /api/auth/login/`
-- `POST /api/auth/register/`
-- `POST /api/max/launch/`
-- `POST /api/max/webhook/`
-- `POST /api/onboarding`
-- `GET /api/student/profile`
-- `GET /api/student/career-gps`
-- `GET /api/student/opportunities`
-- `GET /api/student/opportunities/{id}`
-- `POST /api/student/opportunities/{id}/save`
-- `GET|POST /api/student/subscriptions`
-- `GET /api/v1/notifications/`
-- `GET /api/knowledge/search?q=...`
-- `GET|POST /api/admin/opportunities`
-- `GET /api/admin/analytics`
-
-## Tests
-
-Backend:
-
-```bash
-cd backend
-set DB_ENGINE=sqlite
-python -m pytest
+```powershell
+docker compose logs backend
 ```
 
-Frontend:
+| Компонент | Адрес по умолчанию | Переопределение |
+| --- | --- | --- |
+| Приложение студента | `http://localhost:3000` | `STUDENT_PORT` |
+| Административный интерфейс | `http://localhost:3001` | `ADMIN_PORT` |
+| Django API и health check | `http://localhost:8000/api/health/` | `BACKEND_PORT` |
+| PostgreSQL | `localhost:5432` | порт в `docker-compose.yml` |
 
-```bash
-cd frontend-student
-npm run test
-npm run build
+В production-сборке административный интерфейс также отдается по пути `/admin/` на origin приложения студента. Для локальной демонстрации используйте отдельный порт `3001`.
+
+Остановить контейнеры, сохранив данные БД:
+
+```powershell
+docker compose down
 ```
 
-```bash
-cd frontend-admin
-npm run test
-npm run build
-```
+Повторный `docker compose up --build -d` использует сохраненный volume. Удаление volume уничтожает локальные данные базы; выполняйте `docker compose down -v` только если действительно хотите начать демонстрацию с пустой БД.
 
-Operational commands:
+### Переменные окружения
 
-```bash
-python manage.py retry_failed_notifications --limit 100
-python manage.py register_max_webhook
-```
+Основные параметры находятся в `.env.example`:
 
-## Security Notes
+- база данных: `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` и `DATABASE_URL`;
+- Django: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`;
+- порты: `BACKEND_PORT`, `STUDENT_PORT`, `ADMIN_PORT`;
+- frontend/API и сборка: `VITE_API_URL`, `NODE_ENV`, `BUILD_TARGET`;
+- демо-данные: `AUTO_SEED_DEMO`;
+- MAX: `MAX_API_URL`, `MAX_INTEGRATION_MODE`, `MAX_BOT_TOKEN`, `MAX_WEBHOOK_SECRET`, `MAX_WEBHOOK_URL`, `MAX_OPEN_APP_TARGET`, `MAX_WEBAPP_BASE_URL`, `MAX_INITDATA_MAX_AGE_SECONDS`.
 
-- Public registration only creates student accounts and rejects privileged roles.
-- MAX bot token is read only by backend.
-- Webhook requests are protected by `X-Max-Bot-Api-Secret`.
-- Notification delivery state, read state, provider message id, timestamps, and idempotency key are stored separately.
-- Duplicate publish/webhook events do not create duplicate notification records.
-- See `SECURITY.md` for secret handling and scan commands.
+Без MAX-токена оставьте `MAX_INTEGRATION_MODE=mock`: приложение записывает уведомления как смоделированные и не отправляет запросы в MAX. Режим `real` требует токен бота, настроенный публичный HTTPS, корректные параметры webhook и действующий MAX-профиль получателя. Секреты задаются только локально или в хранилище секретов развертывания; см. `SECURITY.md`.
 
-## Known Limitations
+Зависимости backend перечислены в `backend/requirements.txt`; для фронтендов используется Node.js 20 и `npm ci` по lock-файлам. Docker Compose — основной способ поднять все локальные компоненты одной командой. Для отдельной разработки Vite запущен на портах `3000` и `3001`; оба dev-сервера проксируют `/api` в `http://localhost:8000`. Django настраивается через переменные окружения, перечисленные в `.env.example`.
 
-- `mock` MAX mode is deterministic local simulation, not proof of production delivery.
-- Real MAX return buttons require a public MAX bot/mini-app target in `MAX_OPEN_APP_TARGET`; local frontend URLs are not a valid proof of production return flow.
-- Knowledge search is deterministic keyword matching over seeded verified records.
-- Demo data is synthetic.
-- JWT refresh is present in backend but not fully wired into frontend UX.
-- Production deployment must provide public HTTPS, strict allowed hosts/CORS, and real MAX bot settings.
+## Демонстрация
+
+1. Запустите Compose и откройте интерфейс студента на `http://localhost:3000`.
+2. Используйте локальную демо-учетную запись студента, созданную `seed_demo` (имя учетной записи и пароль команда выводит при запуске backend).
+3. Покажите профиль, Career GPS, оценку совпадения возможности, причины и пробелы; сохраните возможность и создайте тематическую подписку.
+4. Во втором браузере откройте `http://localhost:3001` и войдите в демо-учетную запись администратора, выведенную той же командой.
+5. Опубликуйте активную возможность, подходящую подписке. Административный интерфейс покажет сводку по получателям и результату доставки; записи студента доступны через `GET /api/v1/notifications/` с его авторизацией. В локальном mock-режиме статус — `simulated`; это не доставка сообщения MAX.
+6. Откройте базу знаний и проверьте поиск по подготовленным материалам и ответ при отсутствии подтвержденного результата.
+
+Для запуска API smoke-сценария, если нужен отдельный технический прогон, в `DEMO_TEST_SCENARIO.md` описана команда `backend/scripts/smoke_data_api.py`. Сценарий изменяет данные API; используйте только локальную демо-базу. Наборы тестов этот README не предлагает запускать.
+
+## API и интеграции
+
+В репозитории определены собственные API и OpenAPI-контракт. Часто используемые маршруты:
+
+- `GET /api/health/` — состояние backend;
+- `POST /api/auth/register/`, `POST /api/auth/login/` — регистрация и вход;
+- `POST /api/max/launch/`, `POST /api/max/webhook/` — запуск мини-приложения и прием webhook MAX;
+- `POST /api/onboarding`, `GET /api/student/profile`, `GET /api/student/career-gps`;
+- `GET /api/student/opportunities`, `GET /api/student/opportunities/{id}`, `POST /api/student/opportunities/{id}/save`;
+- `GET|POST /api/student/subscriptions`;
+- `GET /api/knowledge/search?q=...`;
+- `GET|POST /api/admin/opportunities`, `GET /api/admin/analytics`.
+
+Полные контракты находятся в `openapi.yaml` и `DATA-API.yaml`. В `DATA-API.yaml` указан проверочный базовый адрес `https://188-120-251-143.sslip.io`; его текущая доступность в рамках этого аудита не подтверждалась. Не считайте адрес гарантированно работающим без отдельной проверки.
+
+MAX-адаптер имеет mock- и real-режим. Код real-режима отправляет сообщения через MAX Bot API; для этого необходимы внешняя конфигурация и разрешенный сценарий доступа. Webhook требует секретного заголовка, а запуск Mini App проверяет подписанные данные MAX. Автоматическая отправка и кнопка возврата в Mini App зависят от привязки аккаунта и публичного адреса.
+
+### Статус проверки MAX
+
+По техническим прогонам команды, ручной MAX-сценарий подтвержден частично: сообщение появилось в тестовом диалоге, а переход к карточке сработал после закрытия Mini App. Первый «теплый» переход оставил прежний экран. Отвязка МГСУ при входе в МАИ и число действительно доставленных получателей не подтверждены. Поэтому интеграция не описывается как полностью проверенная, а получение платформенного бонуса MAX не заявляется.
+
+В репозитории также сохранен отчет о локальном API smoke-прогоне в mock-режиме (`output/reports/MAX-smoke.txt`) и отчет о проверке структуры DATA-API (`output/reports/DATA-API-validation.txt`). Это технические артефакты предыдущих прогонов, а не измерение продуктового эффекта или подтверждение живой доставки MAX.
+
+## Данные, пилот и масштабирование
+
+Демо-набор создается командой `seed_demo` (автоматически при запуске контейнера либо вручную из каталога `backend/`) и состоит из синтетических пользователей, университетов, профилей, карьерных ролей, навыков, возможностей, материалов базы знаний и подписок. Это не данные реальных студентов или актуальный каталог вакансий вуза. В mock-режиме сообщения не доставляются во внешний мессенджер.
+
+МГСУ согласовал тестовый пилот для студентов Института цифровых технологий и моделирования в строительстве. По сведениям команды, вуз готов информировать студентов, размещать возможности и пополнять базу знаний. Сроки пилота, размер группы и владельцы данных пока не уточнены. Пилот еще не проведен; измеренных продуктовых результатов нет.
+
+Следующий этап пилота должен задать исходный уровень и метрики: доля начавших и завершивших профиль, время до первой релевантной возможности, сохранения и отклики на карточки, качество рекомендаций по обратной связи, а также доля публикаций с указанными условиями оплаты. Это план измерений, а не достигнутые результаты. Для переноса на другой вуз потребуется настроить его структуру, справочники, карьерные роли и каталог, определить владельцев данных и проверить интеграции и доступы.
+
+## Ограничения и статус конкурса
+
+- Интервью качественные и ограничены 15 студентами одного вуза; результаты нельзя обобщать на весь поток или рынок.
+- Измеренных продуктовых результатов пока нет. Есть интервью и технические прогоны.
+- В модели возможности нет отдельного поля оплаты; фильтр оплачиваемых возможностей не реализован как самостоятельная функция.
+- В интерфейсе студента нет отдельного центра уведомлений; backend сохраняет записи и предоставляет их через API.
+- База знаний ищет по подготовленным данным и не заменяет актуальную официальную консультацию.
+- Локальный MAX mock подтверждает только создание смоделированного уведомления. Реальная доставка требует настройки внешнего MAX-сервиса.
+- Наличие публичной ссылки на работающий MAX-сценарий и ее доступность экспертам не подтверждены этим README. В материалах кейса доступность основного сценария в MAX является обязательным требованием; контейнеризация сама по себе ее не заменяет.
+- Конкурс также требует фиксированной версии исходного кода, PDF-презентации, зависимостей, Docker-конфигурации, `.env.example`, описания данных, сценария демонстрации и ограничений. Наличие и готовность материалов следует сверять перед отправкой конкретной заявки.
+
+## Источники
+
+- Материалы кейса организаторов: «Образовательные решения.pdf» (22 страницы, предоставленный команде файл). В них заданы требования к MVP в MAX, README, Docker, данным, демонстрации, критериям оценки и плану пилота.
+- 15 интервью студентов МГСУ, проведенные командой; распределение и результаты приведены выше.
+- Подтвержденные командой сведения о согласовании тестового пилота МГСУ и технических прогонах.
+- Реализация в этом репозитории: модели и сервисы в `backend/apps/`, маршруты в `backend/config/urls.py`, seed-команда в `backend/apps/accounts/management/commands/seed_demo.py`, контракты `openapi.yaml` и `DATA-API.yaml`.
